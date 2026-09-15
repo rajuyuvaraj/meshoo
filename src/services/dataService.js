@@ -1,12 +1,13 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { generateInitialDailyEntries, generateInitialRemittanceEntries } from './mockSeedData';
 import { calculateCashTally, getAuditStatus } from '../utils/formatters';
+import { hashString, secureCompare, SECURE_MANAGER_CREDENTIALS } from '../utils/security';
 
 const STORAGE_KEYS = {
   DAILY_ENTRIES: 'vns_hub_daily_entries',
   REMITTANCE_ENTRIES: 'vns_hub_remittance_entries',
   KNOWN_AGENTS: 'vns_hub_known_agents',
-  CURRENT_USER: 'vns_hub_current_user',
+  AUTH_SESSION: 'vns_hub_secure_session',
 };
 
 // Default initial agent suggestions for autocomplete
@@ -36,7 +37,7 @@ ensureLocalStorageInitialized();
 
 export const dataService = {
   // --------------------------------------------------------------------------
-  // AUTHENTICATION
+  // AUTHENTICATION & SECURITY
   // --------------------------------------------------------------------------
   async getCurrentUser() {
     if (isSupabaseConfigured && supabase) {
@@ -46,49 +47,89 @@ export const dataService = {
           return {
             id: session.user.id,
             email: session.user.email,
+            username: session.user.email.split('@')[0],
             role: 'Hub Manager',
             hub: 'Varanasi Hub (VNS-01)',
+            name: SECURE_MANAGER_CREDENTIALS.displayName,
           };
         }
       } catch (err) {
         console.warn('Supabase session check error:', err);
       }
     }
-    const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-    return saved ? JSON.parse(saved) : null;
+    const saved = localStorage.getItem(STORAGE_KEYS.AUTH_SESSION);
+    if (!saved) return null;
+    try {
+      const parsed = JSON.parse(saved);
+      // Validate session expiry (e.g. 7 days)
+      if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
+        localStorage.removeItem(STORAGE_KEYS.AUTH_SESSION);
+        return null;
+      }
+      return parsed.user;
+    } catch {
+      return null;
+    }
   },
 
   async login(usernameOrEmail, password) {
+    const cleanUser = (usernameOrEmail || '').trim().toLowerCase();
+    const cleanPass = (password || '').trim();
+
+    if (!cleanUser || !cleanPass) {
+      throw new Error('Please enter both username and password.');
+    }
+
+    // 1. Supabase Auth if connected
     if (isSupabaseConfigured && supabase) {
-      const email = usernameOrEmail.includes('@') ? usernameOrEmail : `${usernameOrEmail}@varanasi-hub.meesho.in`;
+      const email = cleanUser.includes('@') ? cleanUser : `${cleanUser}@varanasi-hub.meesho.in`;
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password,
+        password: cleanPass,
       });
       if (error) throw new Error(error.message);
       const user = {
         id: data.user.id,
         email: data.user.email,
+        username: cleanUser,
         role: 'Hub Manager',
         hub: 'Varanasi Hub (VNS-01)',
+        name: SECURE_MANAGER_CREDENTIALS.displayName,
       };
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+      const session = {
+        user,
+        token: `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      };
+      localStorage.setItem(STORAGE_KEYS.AUTH_SESSION, JSON.stringify(session));
       return user;
     }
 
-    if (password.length >= 4) {
+    // 2. Cryptographic Salted SHA-256 Verification for Manager 'vaibhav'
+    const inputUserHash = await hashString(cleanUser.split('@')[0]);
+    const inputPassHash = await hashString(cleanPass);
+
+    const isUserValid = secureCompare(inputUserHash, SECURE_MANAGER_CREDENTIALS.usernameHash);
+    const isPassValid = secureCompare(inputPassHash, SECURE_MANAGER_CREDENTIALS.passwordHash);
+
+    if (isUserValid && isPassValid) {
       const user = {
-        id: 'mgr-vns-001',
-        email: usernameOrEmail.includes('@') ? usernameOrEmail : `${usernameOrEmail}@varanasi-hub.in`,
-        username: usernameOrEmail,
+        id: 'mgr-vns-vaibhav',
+        email: 'vaibhav@varanasi-hub.in',
+        username: 'vaibhav',
         role: 'Hub Manager',
         hub: 'Varanasi Hub (VNS-01)',
-        name: 'Varanasi Hub Manager',
+        name: 'Vaibhav',
       };
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+      const session = {
+        user,
+        token: `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      };
+      localStorage.setItem(STORAGE_KEYS.AUTH_SESSION, JSON.stringify(session));
       return user;
     } else {
-      throw new Error('Invalid credentials. Password must be at least 4 characters.');
+      throw new Error('Invalid credentials. Please check your manager username and password.');
     }
   },
 
@@ -100,7 +141,7 @@ export const dataService = {
         console.error('Signout error:', e);
       }
     }
-    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    localStorage.removeItem(STORAGE_KEYS.AUTH_SESSION);
     return true;
   },
 
@@ -110,7 +151,6 @@ export const dataService = {
   async getKnownAgents() {
     ensureLocalStorageInitialized();
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEYS.KNOWN_AGENTS) || '[]');
-    // Also pull distinct agents from daily entries
     const entries = JSON.parse(localStorage.getItem(STORAGE_KEYS.DAILY_ENTRIES) || '[]');
     const map = new Map();
     stored.forEach(a => {
@@ -202,7 +242,6 @@ export const dataService = {
       updated_at: new Date().toISOString(),
     };
 
-    // Store in known suggestions
     await this.recordKnownAgent(payload.agent_name, payload.login_account_id);
 
     if (isSupabaseConfigured && supabase) {
@@ -226,7 +265,6 @@ export const dataService = {
       }
     }
 
-    // LocalStorage
     ensureLocalStorageInitialized();
     const entries = JSON.parse(localStorage.getItem(STORAGE_KEYS.DAILY_ENTRIES) || '[]');
     let resultEntry;
@@ -265,7 +303,6 @@ export const dataService = {
     return true;
   },
 
-  // Bulk import shift entries (from CSV, JSON or clipboard)
   async bulkImportDailyEntries(entriesList) {
     ensureLocalStorageInitialized();
     const existing = JSON.parse(localStorage.getItem(STORAGE_KEYS.DAILY_ENTRIES) || '[]');
