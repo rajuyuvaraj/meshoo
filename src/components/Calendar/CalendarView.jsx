@@ -14,7 +14,8 @@ import {
   ArrowUpRight,
   Calendar as CalendarIcon,
   Trash2,
-  Edit3
+  Edit3,
+  User
 } from 'lucide-react';
 import { formatINR, formatDate } from '../../utils/formatters';
 
