@@ -8,32 +8,38 @@ import {
   Banknote, 
   TrendingUp, 
   AlertTriangle,
-  Building2
+  Building2,
+  Lock,
+  ArrowDownRight,
+  ArrowUpRight,
+  Calendar as CalendarIcon,
+  Trash2,
+  Edit3
 } from 'lucide-react';
-import { formatINR } from '../../utils/formatters';
+import { formatINR, formatDate } from '../../utils/formatters';
 
 export default function CalendarView({ 
   dailyEntries = [], 
   remittanceEntries = [],
   currentDate, 
   onSelectDate, 
-  onOpenWizard 
+  onOpenWizard,
+  onOpenDepositModal,
+  onDeleteDailyEntry,
+  onDeleteDeposit
 }) {
-  // Calendar month state (defaults to current date's month)
+  // Calendar month state
   const [viewDate, setViewDate] = useState(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
   });
 
   const year = viewDate.getFullYear();
-  const month = viewDate.getMonth(); // 0-indexed
+  const month = viewDate.getMonth();
 
-  // Format YYYY-MM
   const currentMonthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
-
   const monthName = viewDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 
-  // Navigate month
   const handlePrevMonth = () => {
     setViewDate(new Date(year, month - 1, 1));
   };
@@ -52,13 +58,22 @@ export default function CalendarView({
     const map = new Map();
     dailyEntries.forEach(entry => {
       const d = entry.entry_date;
-      if (!map.has(d)) {
-        map.set(d, []);
-      }
+      if (!map.has(d)) map.set(d, []);
       map.get(d).push(entry);
     });
     return map;
   }, [dailyEntries]);
+
+  // Group remittances by date
+  const depositsByDate = useMemo(() => {
+    const map = new Map();
+    remittanceEntries.forEach(rem => {
+      const d = rem.entry_date;
+      if (!map.has(d)) map.set(d, []);
+      map.get(d).push(rem);
+    });
+    return map;
+  }, [remittanceEntries]);
 
   // Aggregate stats for the currently viewed month
   const monthAggregates = useMemo(() => {
@@ -85,56 +100,56 @@ export default function CalendarView({
       }
     });
 
+    const cashInVault = codCash - totalDepositAmount;
+
     return {
       totalDeliveries,
       onlinePayments,
       codCash,
       totalDepositAmount,
+      cashInVault,
       totalSettled,
       netVariance,
     };
   }, [dailyEntries, remittanceEntries, currentMonthStr]);
 
-  // Build calendar matrix (Days of Month)
+  // Build calendar matrix
   const calendarCells = useMemo(() => {
-    const firstDayIndex = new Date(year, month, 1).getDay(); // 0 = Sun
+    const firstDayIndex = new Date(year, month, 1).getDay();
     const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
     const prevMonthDays = new Date(year, month, 0).getDate();
 
     const cells = [];
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Previous month padding
     for (let i = firstDayIndex - 1; i >= 0; i--) {
       const dayNum = prevMonthDays - i;
-      cells.push({
-        dayNum,
-        isOutside: true,
-        dateStr: null,
-      });
+      cells.push({ dayNum, isOutside: true, dateStr: null });
     }
 
-    // Days in current month
     for (let day = 1; day <= totalDaysInMonth; day++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const dayEntries = entriesByDate.get(dateStr) || [];
+      const dayDeposits = depositsByDate.get(dateStr) || [];
       const hasEntries = dayEntries.length > 0;
+      const hasDeposits = dayDeposits.length > 0;
 
       let status = 'empty';
       let daySettled = 0;
       let dayVariance = 0;
+      let dayDeposited = 0;
 
       if (hasEntries) {
         daySettled = dayEntries.reduce((sum, e) => sum + (Number(e.total_settled) || 0), 0);
         dayVariance = dayEntries.reduce((sum, e) => sum + (Number(e.cash_variance) || 0), 0);
 
-        if (dayVariance === 0) {
-          status = 'balanced';
-        } else if (dayVariance < 0) {
-          status = 'shortage';
-        } else {
-          status = 'surplus';
-        }
+        if (dayVariance === 0) status = 'balanced';
+        else if (dayVariance < 0) status = 'shortage';
+        else status = 'surplus';
+      }
+
+      if (hasDeposits) {
+        dayDeposited = dayDeposits.reduce((sum, d) => sum + (Number(d.cash_deposited) || 0), 0);
       }
 
       cells.push({
@@ -143,19 +158,54 @@ export default function CalendarView({
         dateStr,
         isToday: dateStr === todayStr,
         hasEntries,
+        hasDeposits,
         agentCount: dayEntries.length,
         status,
         daySettled,
         dayVariance,
+        dayDeposited,
       });
     }
 
     return cells;
-  }, [year, month, entriesByDate]);
+  }, [year, month, entriesByDate, depositsByDate]);
+
+  // Combined recent activity feed (Shift Collections + Bank Deposits)
+  const combinedActivityFeed = useMemo(() => {
+    const list = [];
+    dailyEntries.forEach(entry => {
+      list.push({
+        id: entry.id,
+        type: 'collection',
+        date: entry.entry_date,
+        title: entry.agent_name,
+        subtitle: `${entry.total_delivered} Parcels (${entry.cod_orders} COD) • ${entry.login_account_id || 'LOG-VNS'}`,
+        amount: Number(entry.actual_cash_tally) || 0,
+        online: Number(entry.online_received) || 0,
+        variance: Number(entry.cash_variance) || 0,
+        status: entry.audit_status || 'Balanced',
+        raw: entry,
+      });
+    });
+
+    remittanceEntries.forEach(dep => {
+      list.push({
+        id: dep.id || dep.entry_date,
+        type: 'deposit',
+        date: dep.entry_date,
+        title: `Bank Deposit: ${dep.deposit_bank || 'Bank'}`,
+        subtitle: `${dep.deposit_branch || 'Main Branch'} • Slip: ${dep.cash_challan_no || 'N/A'}`,
+        amount: Number(dep.cash_deposited) || 0,
+        raw: dep,
+      });
+    });
+
+    return list.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 8);
+  }, [dailyEntries, remittanceEntries]);
 
   return (
     <div className="calendar-view-container">
-      {/* Month Aggregates Stats Strip (Including Bank Deposit Amount) */}
+      {/* Top Comprehensive KPI Summary Strip */}
       <div className="kpi-grid">
         <div className="kpi-card delivery">
           <div className="kpi-label">
@@ -181,10 +231,9 @@ export default function CalendarView({
             <Banknote size={14} color="#d97706" />
           </div>
           <div className="kpi-value">{formatINR(monthAggregates.codCash)}</div>
-          <div className="kpi-subtext">Physical cash tallies</div>
+          <div className="kpi-subtext">Physical cash from riders</div>
         </div>
 
-        {/* Bank Deposit Amount KPI Card */}
         <div className="kpi-card deposit">
           <div className="kpi-label">
             <span>Bank Cash Deposited</span>
@@ -193,16 +242,20 @@ export default function CalendarView({
           <div className="kpi-value" style={{ color: '#0d9488' }}>
             {formatINR(monthAggregates.totalDepositAmount)}
           </div>
-          <div className="kpi-subtext">Physical branch deposits</div>
+          <div className="kpi-subtext">Physical bank branch deposits</div>
         </div>
 
-        <div className="kpi-card settled">
+        <div className={`kpi-card ${monthAggregates.cashInVault > 0 ? 'cash' : 'balanced'}`}>
           <div className="kpi-label">
-            <span>Total Settled Revenue</span>
-            <TrendingUp size={14} color="#7c3aed" />
+            <span>Cash in Vault / Hand</span>
+            <Lock size={14} color={monthAggregates.cashInVault > 0 ? '#d97706' : '#10b981'} />
           </div>
-          <div className="kpi-value">{formatINR(monthAggregates.totalSettled)}</div>
-          <div className="kpi-subtext">Online + Actual Cash</div>
+          <div className="kpi-value" style={{ color: monthAggregates.cashInVault > 0 ? '#b45309' : '#059669' }}>
+            {formatINR(monthAggregates.cashInVault)}
+          </div>
+          <div className="kpi-subtext">
+            {monthAggregates.cashInVault > 0 ? 'Pending bank deposit' : 'Fully deposited to bank'}
+          </div>
         </div>
 
         <div className={`kpi-card ${monthAggregates.netVariance < 0 ? 'variance' : 'balanced'}`}>
@@ -216,6 +269,41 @@ export default function CalendarView({
           <div className="kpi-subtext">
             {monthAggregates.netVariance === 0 ? 'Fully Reconciled' : monthAggregates.netVariance < 0 ? 'Net Shortage' : 'Net Surplus'}
           </div>
+        </div>
+      </div>
+
+      {/* Quick Actions Header Bar */}
+      <div style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '12px',
+        marginBottom: '16px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
+            Daily Hub Operations & Reconciliation
+          </h2>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            className="btn btn-secondary"
+            style={{ background: '#f0fdfa', borderColor: '#99f6e4', color: '#0f766e' }}
+            onClick={() => onOpenDepositModal(currentDate || new Date().toISOString().split('T')[0], monthAggregates.cashInVault)}
+          >
+            <Building2 size={16} color="#0d9488" />
+            <span>+ Record Bank Deposit</span>
+          </button>
+
+          <button
+            className="btn btn-primary"
+            onClick={() => onOpenWizard(currentDate || new Date().toISOString().split('T')[0])}
+          >
+            <Plus size={16} />
+            <span>+ Add Rider Shift Entry</span>
+          </button>
         </div>
       </div>
 
@@ -235,7 +323,6 @@ export default function CalendarView({
             </button>
           </div>
 
-          {/* Audit Status Legend */}
           <div className="legend-bar">
             <div className="legend-item">
               <span className="legend-dot balanced"></span>
@@ -256,7 +343,6 @@ export default function CalendarView({
           </div>
         </div>
 
-        {/* Days of Week */}
         <div className="calendar-weekdays">
           <span>Sun</span>
           <span>Mon</span>
@@ -267,7 +353,6 @@ export default function CalendarView({
           <span>Sat</span>
         </div>
 
-        {/* Calendar Day Cells */}
         <div className="calendar-grid">
           {calendarCells.map((cell, idx) => {
             if (cell.isOutside) {
@@ -300,7 +385,16 @@ export default function CalendarView({
                         {cell.status === 'shortage' && `Short ${formatINR(cell.dayVariance)}`}
                         {cell.status === 'surplus' && `+${formatINR(cell.dayVariance)}`}
                       </div>
+                      {cell.hasDeposits && (
+                        <div style={{ fontSize: '0.62rem', color: '#0d9488', fontWeight: 700, marginTop: '2px' }}>
+                          🏦 {formatINR(cell.dayDeposited)}
+                        </div>
+                      )}
                     </>
+                  ) : cell.hasDeposits ? (
+                    <div style={{ fontSize: '0.68rem', color: '#0d9488', fontWeight: 700, marginTop: '6px' }}>
+                      🏦 Deposit {formatINR(cell.dayDeposited)}
+                    </div>
                   ) : (
                     <div style={{ fontSize: '0.68rem', color: '#94a3b8', fontStyle: 'italic', marginTop: '6px' }}>
                       No entries
@@ -313,7 +407,109 @@ export default function CalendarView({
         </div>
       </div>
 
-      {/* Quick Floating "+ Add Entry" Button */}
+      {/* Unified Activity & Deposit Ledger Feed */}
+      <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '20px', marginTop: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <div>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
+              Recent Collections & Bank Deposit Activity Feed
+            </h3>
+            <p style={{ fontSize: '0.75rem', color: '#64748b' }}>
+              Live audit trail of rider cash handovers and bank branch deposits
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Vault Balance:</span>
+            <span style={{ fontWeight: 800, color: monthAggregates.cashInVault > 0 ? '#b45309' : '#059669', fontSize: '1.05rem' }}>
+              {formatINR(monthAggregates.cashInVault)}
+            </span>
+          </div>
+        </div>
+
+        {combinedActivityFeed.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8', fontSize: '0.85rem' }}>
+            No shift collections or deposit activity recorded yet.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {combinedActivityFeed.map(item => {
+              const isDeposit = item.type === 'deposit';
+
+              return (
+                <div
+                  key={`${item.type}-${item.id}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    background: isDeposit ? '#f0fdfa' : '#f8fafc',
+                    border: `1px solid ${isDeposit ? '#99f6e4' : '#e2e8f0'}`,
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: '8px',
+                      background: isDeposit ? '#ccfbf1' : '#eef2ff',
+                      color: isDeposit ? '#0d9488' : '#4f46e5',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      {isDeposit ? <Building2 size={18} /> : <User size={18} />}
+                    </div>
+
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0f172a' }}>
+                        {item.title}
+                      </div>
+                      <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                        {formatDate(item.date, 'short')} • {item.subtitle}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{
+                      fontFamily: 'var(--font-heading)',
+                      fontWeight: 800,
+                      fontSize: '1rem',
+                      color: isDeposit ? '#0d9488' : '#312e81',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'flex-end',
+                      gap: '4px'
+                    }}>
+                      {isDeposit ? (
+                        <>
+                          <ArrowDownRight size={15} color="#0d9488" />
+                          <span>- {formatINR(item.amount)}</span>
+                        </>
+                      ) : (
+                        <>
+                          <ArrowUpRight size={15} color="#4f46e5" />
+                          <span>+ {formatINR(item.amount)}</span>
+                        </>
+                      )}
+                    </div>
+
+                    <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                      {isDeposit ? 'Bank Deposit Handover' : `Total Settled: ${formatINR(item.raw?.total_settled || item.amount)}`}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Floating Action Button */}
       <button
         className="fab-add"
         onClick={() => onOpenWizard(currentDate || new Date().toISOString().split('T')[0])}

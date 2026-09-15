@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Header from './components/Header';
-import BottomNav from './components/BottomNav';
 import LoginScreen from './components/Auth/LoginScreen';
 import CalendarView from './components/Calendar/CalendarView';
 import DateDetailModal from './components/Calendar/DateDetailModal';
 import EntryWizardModal from './components/EntryWizard/EntryWizardModal';
+import RecordDepositModal from './components/Remittance/RecordDepositModal';
 import BulkUploadModal from './components/Common/BulkUploadModal';
-import RemittanceView from './components/Remittance/RemittanceView';
 import { dataService } from './services/dataService';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
@@ -14,9 +13,6 @@ export default function App() {
   // Authentication state
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-
-  // Active Navigation Tab: 'calendar' | 'remittance'
-  const [activeTab, setActiveTab] = useState('calendar');
 
   // Data Store state
   const [knownAgents, setKnownAgents] = useState([]);
@@ -32,8 +28,14 @@ export default function App() {
     entryToEdit: null,
   });
 
+  const [depositModalState, setDepositModalState] = useState({
+    isOpen: false,
+    date: new Date().toISOString().split('T')[0],
+    depositToEdit: null,
+    suggestedAmount: 0,
+  });
+
   const [showBulkUpload, setShowBulkUpload] = useState(false);
-  const [remittanceTargetDate, setRemittanceTargetDate] = useState(null);
 
   // Toast notifications
   const [toasts, setToasts] = useState([]);
@@ -101,15 +103,7 @@ export default function App() {
     addToast('Signed out of Varanasi Hub');
   };
 
-  const handleResetDemoData = () => {
-    if (window.confirm('Reset all Varanasi Hub data back to original seed data?')) {
-      dataService.resetToMockData();
-      loadData();
-      addToast('Data successfully reset to initial Varanasi Hub seed');
-    }
-  };
-
-  // Entry Modal actions (Open new or Edit existing)
+  // Rider Shift Entry Modal actions
   const handleOpenEntryModal = (date, entryToEdit = null) => {
     setEntryModalState({
       isOpen: true,
@@ -137,24 +131,39 @@ export default function App() {
     }
   };
 
+  // Bank Deposit Modal actions
+  const handleOpenDepositModal = (date, suggestedAmount = 0, depositToEdit = null) => {
+    setDepositModalState({
+      isOpen: true,
+      date: date || new Date().toISOString().split('T')[0],
+      depositToEdit,
+      suggestedAmount: Math.max(0, suggestedAmount),
+    });
+  };
+
+  const handleCloseDepositModal = () => {
+    setDepositModalState({ isOpen: false, date: null, depositToEdit: null, suggestedAmount: 0 });
+  };
+
+  const handleSaveDeposit = async (depositData) => {
+    await dataService.saveRemittanceEntry(depositData);
+    await loadData();
+    addToast(`Bank deposit of ₹${depositData.cash_deposited.toLocaleString('en-IN')} recorded!`);
+  };
+
+  const handleDeleteDeposit = async (idOrDate) => {
+    if (window.confirm('Are you sure you want to delete this bank deposit record?')) {
+      await dataService.deleteRemittanceEntry(idOrDate);
+      await loadData();
+      addToast('Deposit record deleted');
+    }
+  };
+
   // Bulk Import
   const handleBulkImport = async (entriesList) => {
     const imported = await dataService.bulkImportDailyEntries(entriesList);
     await loadData();
     addToast(`Successfully imported ${imported.length} shift entries!`);
-  };
-
-  // Remittance actions
-  const handleSaveRemittance = async (remittanceData) => {
-    await dataService.saveRemittanceEntry(remittanceData);
-    await loadData();
-    addToast('Bank remittance entry recorded successfully');
-  };
-
-  // Handle navigate from Date Detail to Remittance
-  const handleGoToRemittance = (dateStr) => {
-    setRemittanceTargetDate(dateStr);
-    setActiveTab('remittance');
   };
 
   if (authLoading) {
@@ -177,46 +186,38 @@ export default function App() {
     ? dailyEntries.filter(e => e.entry_date === selectedDateDetail)
     : [];
 
+  const activeDateDeposits = selectedDateDetail
+    ? remittanceEntries.filter(r => r.entry_date === selectedDateDetail)
+    : [];
+
   return (
-    <div className="app-container">
-      {/* Dark Navy Header */}
+    <div className="app-container" style={{ paddingBottom: '24px' }}>
+      {/* Dark Navy Executive Header */}
       <Header
         user={user}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
         onLogout={handleLogout}
       />
 
-      {/* Main View Area */}
+      {/* Main Unified Hub Dashboard */}
       <main className="main-content">
-        {activeTab === 'calendar' && (
-          <CalendarView
-            dailyEntries={dailyEntries}
-            remittanceEntries={remittanceEntries}
-            currentDate={selectedDateDetail}
-            onSelectDate={dateStr => setSelectedDateDetail(dateStr)}
-            onOpenWizard={dateStr => handleOpenEntryModal(dateStr)}
-          />
-        )}
-
-        {activeTab === 'remittance' && (
-          <RemittanceView
-            dailyEntries={dailyEntries}
-            remittanceEntries={remittanceEntries}
-            initialSelectedDate={remittanceTargetDate}
-            onSaveRemittance={handleSaveRemittance}
-          />
-        )}
+        <CalendarView
+          dailyEntries={dailyEntries}
+          remittanceEntries={remittanceEntries}
+          currentDate={selectedDateDetail}
+          onSelectDate={dateStr => setSelectedDateDetail(dateStr)}
+          onOpenWizard={dateStr => handleOpenEntryModal(dateStr)}
+          onOpenDepositModal={(dateStr, vaultAmt) => handleOpenDepositModal(dateStr, vaultAmt)}
+          onDeleteDailyEntry={handleDeleteDailyEntry}
+          onDeleteDeposit={handleDeleteDeposit}
+        />
       </main>
-
-      {/* Mobile Bottom Tab Navigation */}
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* Date Detail Modal */}
       {selectedDateDetail && (
         <DateDetailModal
           dateStr={selectedDateDetail}
           entries={activeDateEntries}
+          deposits={activeDateDeposits}
           onClose={() => setSelectedDateDetail(null)}
           onAddAgentEntry={dateStr => {
             handleOpenEntryModal(dateStr);
@@ -225,7 +226,8 @@ export default function App() {
             handleOpenEntryModal(entry.entry_date, entry);
           }}
           onDeleteEntry={handleDeleteDailyEntry}
-          onGoToRemittance={handleGoToRemittance}
+          onOpenDepositModal={(dateStr, vaultAmt) => handleOpenDepositModal(dateStr, vaultAmt)}
+          onDeleteDeposit={handleDeleteDeposit}
         />
       )}
 
@@ -237,6 +239,17 @@ export default function App() {
           knownAgents={knownAgents}
           onClose={handleCloseEntryModal}
           onSave={handleSaveDailyEntry}
+        />
+      )}
+
+      {/* Bank Deposit Modal */}
+      {depositModalState.isOpen && (
+        <RecordDepositModal
+          initialDate={depositModalState.date}
+          depositToEdit={depositModalState.depositToEdit}
+          suggestedAmount={depositModalState.suggestedAmount}
+          onClose={handleCloseDepositModal}
+          onSave={handleSaveDeposit}
         />
       )}
 

@@ -441,6 +441,23 @@ export const dataService = {
     return result;
   },
 
+  async deleteRemittanceEntry(idOrDate) {
+    if (isSupabaseConfigured && supabase) {
+      if (idOrDate.includes('-')) {
+        await supabase.from('remittance_entries').delete().eq('entry_date', idOrDate);
+      } else {
+        await supabase.from('remittance_entries').delete().eq('id', idOrDate);
+      }
+      return true;
+    }
+
+    ensureLocalStorageInitialized();
+    const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.REMITTANCE_ENTRIES) || '[]');
+    const remaining = list.filter(r => r.id !== idOrDate && r.entry_date !== idOrDate);
+    localStorage.setItem(STORAGE_KEYS.REMITTANCE_ENTRIES, JSON.stringify(remaining));
+    return true;
+  },
+
   resetToMockData() {
     localStorage.setItem(STORAGE_KEYS.DAILY_ENTRIES, JSON.stringify(generateInitialDailyEntries()));
     localStorage.setItem(STORAGE_KEYS.REMITTANCE_ENTRIES, JSON.stringify(generateInitialRemittanceEntries()));
