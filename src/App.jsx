@@ -185,8 +185,6 @@ export default function App() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onLogout={handleLogout}
-        onResetDemoData={handleResetDemoData}
-        onOpenBulkUpload={() => setShowBulkUpload(true)}
       />
 
       {/* Main View Area */}
