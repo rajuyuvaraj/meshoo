@@ -8,12 +8,13 @@ import {
   Banknote, 
   TrendingUp, 
   AlertTriangle,
-  Calendar as CalendarIcon
+  Building2
 } from 'lucide-react';
 import { formatINR } from '../../utils/formatters';
 
 export default function CalendarView({ 
   dailyEntries = [], 
+  remittanceEntries = [],
   currentDate, 
   onSelectDate, 
   onOpenWizard 
@@ -66,6 +67,7 @@ export default function CalendarView({
     let codCash = 0;
     let totalSettled = 0;
     let netVariance = 0;
+    let totalDepositAmount = 0;
 
     dailyEntries.forEach(e => {
       if (e.entry_date && e.entry_date.startsWith(currentMonthStr)) {
@@ -77,14 +79,21 @@ export default function CalendarView({
       }
     });
 
+    remittanceEntries.forEach(r => {
+      if (r.entry_date && r.entry_date.startsWith(currentMonthStr)) {
+        totalDepositAmount += Number(r.cash_deposited) || 0;
+      }
+    });
+
     return {
       totalDeliveries,
       onlinePayments,
       codCash,
+      totalDepositAmount,
       totalSettled,
       netVariance,
     };
-  }, [dailyEntries, currentMonthStr]);
+  }, [dailyEntries, remittanceEntries, currentMonthStr]);
 
   // Build calendar matrix (Days of Month)
   const calendarCells = useMemo(() => {
@@ -146,7 +155,7 @@ export default function CalendarView({
 
   return (
     <div className="calendar-view-container">
-      {/* Month Aggregates Stats Strip */}
+      {/* Month Aggregates Stats Strip (Including Bank Deposit Amount) */}
       <div className="kpi-grid">
         <div className="kpi-card delivery">
           <div className="kpi-label">
@@ -173,6 +182,18 @@ export default function CalendarView({
           </div>
           <div className="kpi-value">{formatINR(monthAggregates.codCash)}</div>
           <div className="kpi-subtext">Physical cash tallies</div>
+        </div>
+
+        {/* Bank Deposit Amount KPI Card */}
+        <div className="kpi-card deposit">
+          <div className="kpi-label">
+            <span>Bank Cash Deposited</span>
+            <Building2 size={14} color="#0d9488" />
+          </div>
+          <div className="kpi-value" style={{ color: '#0d9488' }}>
+            {formatINR(monthAggregates.totalDepositAmount)}
+          </div>
+          <div className="kpi-subtext">Physical branch deposits</div>
         </div>
 
         <div className="kpi-card settled">

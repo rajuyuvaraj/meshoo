@@ -192,6 +192,7 @@ export default function App() {
         {activeTab === 'calendar' && (
           <CalendarView
             dailyEntries={dailyEntries}
+            remittanceEntries={remittanceEntries}
             currentDate={selectedDateDetail}
             onSelectDate={dateStr => setSelectedDateDetail(dateStr)}
             onOpenWizard={dateStr => handleOpenEntryModal(dateStr)}
