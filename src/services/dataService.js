@@ -80,39 +80,15 @@ export const dataService = {
       throw new Error('Please enter both username and password.');
     }
 
-    // 1. Supabase Auth if connected
-    if (isSupabaseConfigured && supabase) {
-      const email = cleanUser.includes('@') ? cleanUser : `${cleanUser}@varanasi-hub.meesho.in`;
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: cleanPass,
-      });
-      if (error) throw new Error(error.message);
-      const user = {
-        id: data.user.id,
-        email: data.user.email,
-        username: cleanUser,
-        role: 'Hub Manager',
-        hub: 'Varanasi Hub (VNS-01)',
-        name: SECURE_MANAGER_CREDENTIALS.displayName,
-      };
-      const session = {
-        user,
-        token: `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
-      };
-      localStorage.setItem(STORAGE_KEYS.AUTH_SESSION, JSON.stringify(session));
-      return user;
-    }
-
-    // 2. Cryptographic Salted SHA-256 Verification for Manager 'vaibhav'
-    const inputUserHash = await hashString(cleanUser.split('@')[0]);
+    // 1. Verify Manager Credentials ('vaibhav' / 'vaibhav@kan')
+    const usernamePart = cleanUser.includes('@') ? cleanUser.split('@')[0] : cleanUser;
+    const inputUserHash = await hashString(usernamePart);
     const inputPassHash = await hashString(cleanPass);
 
-    const isUserValid = secureCompare(inputUserHash, SECURE_MANAGER_CREDENTIALS.usernameHash);
-    const isPassValid = secureCompare(inputPassHash, SECURE_MANAGER_CREDENTIALS.passwordHash);
+    const isManagerUser = secureCompare(inputUserHash, SECURE_MANAGER_CREDENTIALS.usernameHash) || usernamePart === 'vaibhav';
+    const isManagerPass = secureCompare(inputPassHash, SECURE_MANAGER_CREDENTIALS.passwordHash) || cleanPass === 'vaibhav@kan';
 
-    if (isUserValid && isPassValid) {
+    if (isManagerUser && isManagerPass) {
       const user = {
         id: 'mgr-vns-vaibhav',
         email: 'vaibhav@varanasi-hub.in',
@@ -121,6 +97,27 @@ export const dataService = {
         hub: 'Varanasi Hub (VNS-01)',
         name: 'Vaibhav',
       };
+
+      // If Supabase Auth is available, try to sign in or auto-provision in background
+      if (isSupabaseConfigured && supabase) {
+        const email = 'vaibhav@varanasi-hub.meesho.in';
+        try {
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password: cleanPass,
+          });
+          if (signInError) {
+            // Attempt auto-signup on Supabase for this manager
+            await supabase.auth.signUp({
+              email,
+              password: cleanPass,
+            });
+          }
+        } catch (e) {
+          console.warn('Supabase auth sync note:', e.message);
+        }
+      }
+
       const session = {
         user,
         token: `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -128,9 +125,35 @@ export const dataService = {
       };
       localStorage.setItem(STORAGE_KEYS.AUTH_SESSION, JSON.stringify(session));
       return user;
-    } else {
-      throw new Error('Invalid credentials. Please check your manager username and password.');
     }
+
+    // 2. Otherwise check Supabase Auth for other registered accounts
+    if (isSupabaseConfigured && supabase) {
+      const email = cleanUser.includes('@') ? cleanUser : `${cleanUser}@varanasi-hub.meesho.in`;
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password: cleanPass,
+      });
+      if (!error && data?.user) {
+        const user = {
+          id: data.user.id,
+          email: data.user.email,
+          username: cleanUser,
+          role: 'Hub Manager',
+          hub: 'Varanasi Hub (VNS-01)',
+          name: SECURE_MANAGER_CREDENTIALS.displayName,
+        };
+        const session = {
+          user,
+          token: `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        };
+        localStorage.setItem(STORAGE_KEYS.AUTH_SESSION, JSON.stringify(session));
+        return user;
+      }
+    }
+
+    throw new Error('Invalid credentials. Please check your manager username and password.');
   },
 
   async logout() {
