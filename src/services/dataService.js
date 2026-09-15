@@ -235,7 +235,10 @@ export const dataService = {
   },
 
   async saveDailyEntry(entry) {
-    const actualCashTally = calculateCashTally(entry);
+    const actualCashTally = entry.actual_cash_tally !== undefined && entry.actual_cash_tally !== null && entry.actual_cash_tally !== ''
+      ? Number(entry.actual_cash_tally) || 0
+      : (entry.actual_cash_collected !== undefined ? Number(entry.actual_cash_collected) || 0 : calculateCashTally(entry));
+
     const onlineReceived = Number(entry.online_received) || 0;
     const reportedCodCash = Number(entry.reported_cod_cash) || 0;
     const totalSettled = onlineReceived + actualCashTally;

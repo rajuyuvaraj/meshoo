@@ -6,12 +6,11 @@ import {
   Package, 
   CreditCard, 
   Banknote, 
-  CheckCircle2, 
   AlertCircle,
   Hash,
   Sparkles
 } from 'lucide-react';
-import { formatINR, calculateCashTally, getAuditStatus, DENOMINATIONS } from '../../utils/formatters';
+import { formatINR, getAuditStatus } from '../../utils/formatters';
 
 export default function EntryWizardModal({
   initialDate,
@@ -31,24 +30,18 @@ export default function EntryWizardModal({
     cod_orders: entryToEdit?.cod_orders ?? '',
     online_received: entryToEdit?.online_received ?? '',
     reported_cod_cash: entryToEdit?.reported_cod_cash ?? '',
-    note_500: entryToEdit?.note_500 ?? 0,
-    note_200: entryToEdit?.note_200 ?? 0,
-    note_100: entryToEdit?.note_100 ?? 0,
-    note_50: entryToEdit?.note_50 ?? 0,
-    note_20: entryToEdit?.note_20 ?? 0,
-    note_10: entryToEdit?.note_10 ?? 0,
-    coin_1: entryToEdit?.coin_1 ?? 0,
+    actual_cash_collected: entryToEdit?.actual_cash_tally ?? entryToEdit?.actual_cash_collected ?? '',
   });
 
   const [saving, setSaving] = useState(false);
   const [validationError, setValidationError] = useState('');
 
   // Live calculations
-  const actualCashTally = useMemo(() => calculateCashTally(formData), [formData]);
   const onlineReceived = Number(formData.online_received) || 0;
   const reportedCodCash = Number(formData.reported_cod_cash) || 0;
-  const totalSettled = onlineReceived + actualCashTally;
-  const cashVariance = actualCashTally - reportedCodCash;
+  const actualCashCollected = Number(formData.actual_cash_collected) || 0;
+  const totalSettled = onlineReceived + actualCashCollected;
+  const cashVariance = actualCashCollected - reportedCodCash;
   const auditStatus = getAuditStatus(cashVariance);
 
   // When manager types an agent name, auto-suggest login id if matched
@@ -70,14 +63,6 @@ export default function EntryWizardModal({
   const handleNumberChange = (field, value) => {
     const num = value === '' ? '' : Math.max(0, parseInt(value, 10) || 0);
     setFormData(prev => ({ ...prev, [field]: num }));
-  };
-
-  const handleDenomChange = (denomKey, delta) => {
-    setFormData(prev => {
-      const current = Number(prev[denomKey]) || 0;
-      const next = Math.max(0, current + delta);
-      return { ...prev, [denomKey]: next };
-    });
   };
 
   const handleSubmit = async (e) => {
@@ -110,7 +95,8 @@ export default function EntryWizardModal({
         cod_orders: cod,
         online_received: onlineReceived,
         reported_cod_cash: reportedCodCash,
-        actual_cash_tally: actualCashTally,
+        actual_cash_tally: actualCashCollected,
+        actual_cash_collected: actualCashCollected,
         total_settled: totalSettled,
         cash_variance: cashVariance,
         audit_status: auditStatus,
@@ -127,7 +113,7 @@ export default function EntryWizardModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card wide" onClick={e => e.stopPropagation()} style={{ maxWidth: '820px' }}>
+      <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '680px' }}>
         {/* Modal Header */}
         <div className="modal-header" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: '#ffffff' }}>
           <div>
@@ -136,7 +122,7 @@ export default function EntryWizardModal({
               <span>{isEditing ? `Edit Shift Entry — ${entryToEdit.agent_name}` : 'New Rider Shift Reconciliation'}</span>
             </h3>
             <p style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-              Single-flow entry: enter rider shift data, count physical cash notes, and instantly reconcile.
+              Enter rider shift delivery volume, reported collections, and actual cash collected.
             </p>
           </div>
           <button className="btn-icon" onClick={onClose} style={{ color: '#94a3b8' }}>
@@ -183,7 +169,7 @@ export default function EntryWizardModal({
                       list="agent-suggestions"
                       className="form-input"
                       required
-                      placeholder="Type Rider Name (e.g. Rahul Sharma)"
+                      placeholder="Enter Rider Name (e.g. Rahul Sharma)"
                       value={formData.agent_name}
                       onChange={e => handleAgentNameChange(e.target.value)}
                     />
@@ -231,157 +217,110 @@ export default function EntryWizardModal({
               </div>
             </div>
 
-            {/* 2. DELIVERY VOLUME & REPORTED COLLECTIONS */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '18px' }}>
-              {/* Delivery Volume */}
-              <div style={{ background: '#f0f9ff', padding: '16px', borderRadius: '12px', border: '1px solid #bae6fd' }}>
-                <h4 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: '#0369a1', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Package size={15} color="#0284c7" />
-                  <span>2. Delivery Volume</span>
-                </h4>
+            {/* 2. DELIVERY VOLUME */}
+            <div style={{ background: '#f0f9ff', padding: '16px', borderRadius: '12px', border: '1px solid #bae6fd', marginBottom: '18px' }}>
+              <h4 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: '#0369a1', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Package size={15} color="#0284c7" />
+                <span>2. Delivery Volume</span>
+              </h4>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label">Total Delivered <span className="required">*</span></label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="form-input"
-                      placeholder="0"
-                      value={formData.total_delivered}
-                      onChange={e => handleNumberChange('total_delivered', e.target.value)}
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label">COD Orders <span className="required">*</span></label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="form-input"
-                      placeholder="0"
-                      value={formData.cod_orders}
-                      onChange={e => handleNumberChange('cod_orders', e.target.value)}
-                    />
-                  </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Total Delivered Parcels <span className="required">*</span></label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="form-input"
+                    placeholder="0"
+                    value={formData.total_delivered}
+                    onChange={e => handleNumberChange('total_delivered', e.target.value)}
+                  />
                 </div>
 
-                <div style={{ marginTop: '8px', fontSize: '0.75rem', color: '#0369a1' }}>
-                  Prepaid: <strong>{Math.max(0, (Number(formData.total_delivered) || 0) - (Number(formData.cod_orders) || 0))}</strong> parcels
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">COD Orders <span className="required">*</span></label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="form-input"
+                    placeholder="0"
+                    value={formData.cod_orders}
+                    onChange={e => handleNumberChange('cod_orders', e.target.value)}
+                  />
                 </div>
               </div>
 
-              {/* Reported Collections */}
-              <div style={{ background: '#ccfbf1', padding: '16px', borderRadius: '12px', border: '1px solid #99f6e4' }}>
-                <h4 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: '#0f766e', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <CreditCard size={15} color="#0d9488" />
-                  <span>3. Reported Collections</span>
-                </h4>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label">Online UPI Received</label>
-                    <div className="input-prefix-wrapper">
-                      <span className="input-prefix">₹</span>
-                      <input
-                        type="number"
-                        min="0"
-                        className="form-input"
-                        placeholder="0"
-                        value={formData.online_received}
-                        onChange={e => handleNumberChange('online_received', e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label">Reported COD Cash <span className="required">*</span></label>
-                    <div className="input-prefix-wrapper">
-                      <span className="input-prefix">₹</span>
-                      <input
-                        type="number"
-                        min="0"
-                        className="form-input"
-                        placeholder="0"
-                        value={formData.reported_cod_cash}
-                        onChange={e => handleNumberChange('reported_cod_cash', e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ marginTop: '8px', fontSize: '0.75rem', color: '#0f766e' }}>
-                  Reported App Cash to Reconcile: <strong>{formatINR(reportedCodCash)}</strong>
-                </div>
+              <div style={{ marginTop: '8px', fontSize: '0.75rem', color: '#0369a1' }}>
+                Prepaid: <strong>{Math.max(0, (Number(formData.total_delivered) || 0) - (Number(formData.cod_orders) || 0))}</strong> parcels
               </div>
             </div>
 
-            {/* 3. PHYSICAL CASH DENOMINATION TALLY */}
-            <div style={{ background: '#f5f3ff', padding: '16px', borderRadius: '12px', border: '1px solid #ddd6fe', marginBottom: '18px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h4 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: '#6d28d9', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Banknote size={15} color="#7c3aed" />
-                  <span>4. Physical Cash Denomination Tally</span>
-                </h4>
-                <span style={{ fontSize: '0.78rem', color: '#6d28d9', fontWeight: 600 }}>
-                  Live Count Multipliers
-                </span>
-              </div>
+            {/* 3. REPORTED COLLECTIONS & ACTUAL CASH HANDOVER */}
+            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '18px' }}>
+              <h4 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: '#0f766e', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <CreditCard size={15} color="#0d9488" />
+                <span>3. Shift Collections & Cash Handover</span>
+              </h4>
 
-              <div className="tally-container" style={{ background: '#ffffff' }}>
-                {DENOMINATIONS.map(denom => {
-                  const count = Number(formData[denom.key]) || 0;
-                  const subtotal = count * denom.value;
-
-                  return (
-                    <div key={denom.key} className="tally-row">
-                      <div className="denom-tag" style={{ borderColor: denom.color, color: denom.color }}>
-                        {denom.tag}
-                      </div>
-
-                      <div className="counter-controls">
-                        <button
-                          type="button"
-                          className="counter-btn"
-                          onClick={() => handleDenomChange(denom.key, -1)}
-                        >
-                          -
-                        </button>
-                        <input
-                          type="number"
-                          min="0"
-                          className="counter-input"
-                          value={count === 0 ? '' : count}
-                          placeholder="0"
-                          onChange={e => handleNumberChange(denom.key, e.target.value)}
-                        />
-                        <button
-                          type="button"
-                          className="counter-btn"
-                          onClick={() => handleDenomChange(denom.key, 1)}
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      <div className="denom-subtotal">
-                        {formatINR(subtotal)}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Live Actual Cash Banner */}
-              <div className="live-tally-banner" style={{ marginTop: '12px', background: 'linear-gradient(135deg, #312e81 0%, #1e1b4b 100%)' }}>
-                <div>
-                  <div className="live-tally-label">ACTUAL PHYSICAL CASH COUNT</div>
-                  <div style={{ fontSize: '0.72rem', color: '#c7d2fe' }}>
-                    Calculated live from currency note and coin counts
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                {/* Online Received */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Online UPI Received</label>
+                  <div className="input-prefix-wrapper">
+                    <span className="input-prefix">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      className="form-input"
+                      placeholder="0"
+                      value={formData.online_received}
+                      onChange={e => handleNumberChange('online_received', e.target.value)}
+                    />
                   </div>
+                  <small style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                    UPI / Prepaid QR payments
+                  </small>
                 </div>
-                <div className="live-tally-val">
-                  {formatINR(actualCashTally)}
+
+                {/* Reported COD Cash */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Reported COD Cash (App) <span className="required">*</span></label>
+                  <div className="input-prefix-wrapper">
+                    <span className="input-prefix">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      className="form-input"
+                      placeholder="0"
+                      value={formData.reported_cod_cash}
+                      onChange={e => handleNumberChange('reported_cod_cash', e.target.value)}
+                    />
+                  </div>
+                  <small style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                    Amount expected on delivery app
+                  </small>
+                </div>
+
+                {/* Actual Cash Collected */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ color: '#4338ca', fontWeight: 700 }}>
+                    Actual Cash Collected (₹) <span className="required">*</span>
+                  </label>
+                  <div className="input-prefix-wrapper">
+                    <span className="input-prefix" style={{ color: '#4338ca', fontWeight: 700 }}>₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      className="form-input"
+                      style={{ borderColor: '#a5b4fc', backgroundColor: '#f5f3ff', fontWeight: 700, color: '#312e81' }}
+                      placeholder="0"
+                      value={formData.actual_cash_collected}
+                      onChange={e => handleNumberChange('actual_cash_collected', e.target.value)}
+                    />
+                  </div>
+                  <small style={{ fontSize: '0.72rem', color: '#4338ca', marginTop: '4px', display: 'block', fontWeight: 600 }}>
+                    Physical cash handed over by rider
+                  </small>
                 </div>
               </div>
             </div>
@@ -389,22 +328,22 @@ export default function EntryWizardModal({
             {/* 4. REAL-TIME RECONCILIATION SUMMARY */}
             <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '16px' }}>
               <h4 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: '#475569', marginBottom: '12px' }}>
-                5. Live Settlement & Audit Reconciliation
+                4. Settlement & Reconciliation Summary
               </h4>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px', marginBottom: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
                 <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                   <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Online Received</div>
                   <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#059669' }}>{formatINR(onlineReceived)}</div>
                 </div>
 
-                <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Actual Cash Counted</div>
-                  <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#4f46e5' }}>{formatINR(actualCashTally)}</div>
+                <div style={{ background: '#f5f3ff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #ddd6fe' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#6d28d9' }}>Actual Cash</div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#4f46e5' }}>{formatINR(actualCashCollected)}</div>
                 </div>
 
                 <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Total Settled Revenue</div>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Total Settled</div>
                   <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>{formatINR(totalSettled)}</div>
                 </div>
 

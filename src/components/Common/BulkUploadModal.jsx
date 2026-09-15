@@ -7,9 +7,9 @@ export default function BulkUploadModal({ onClose, onImportSuccess }) {
   const [parsingError, setParsingError] = useState('');
   const [previewData, setPreviewData] = useState([]);
 
-  const SAMPLE_TEMPLATE = `Agent Name,Login Account ID,Date,Delivered,COD Orders,Online UPI,Reported COD Cash,500s,200s,100s,50s,20s,10s,1s
-Ramesh Chandra,LOG-VNS-109,${new Date().toISOString().split('T')[0]},45,25,12000,20000,35,10,5,0,0,0,0
-Suraj Verma,LOG-VNS-110,${new Date().toISOString().split('T')[0]},50,30,15000,24000,40,15,10,0,0,0,0`;
+  const SAMPLE_TEMPLATE = `Agent Name,Login Account ID,Date,Delivered,COD Orders,Online UPI,Reported COD Cash,Actual Cash Collected
+Ramesh Chandra,LOG-VNS-109,${new Date().toISOString().split('T')[0]},45,25,12000,20000,20000
+Suraj Verma,LOG-VNS-110,${new Date().toISOString().split('T')[0]},50,30,15000,24000,23900`;
 
   const handleLoadSample = () => {
     setCsvText(SAMPLE_TEMPLATE);
@@ -43,13 +43,7 @@ Suraj Verma,LOG-VNS-110,${new Date().toISOString().split('T')[0]},50,30,15000,24
           const cod_orders = Number(parts[4]) || 0;
           const online_received = Number(parts[5]) || 0;
           const reported_cod_cash = Number(parts[6]) || 0;
-          const note_500 = Number(parts[7]) || 0;
-          const note_200 = Number(parts[8]) || 0;
-          const note_100 = Number(parts[9]) || 0;
-          const note_50 = Number(parts[10]) || 0;
-          const note_20 = Number(parts[11]) || 0;
-          const note_10 = Number(parts[12]) || 0;
-          const coin_1 = Number(parts[13]) || 0;
+          const actual_cash_tally = Number(parts[7]) || reported_cod_cash;
 
           rows.push({
             agent_name,
@@ -59,13 +53,7 @@ Suraj Verma,LOG-VNS-110,${new Date().toISOString().split('T')[0]},50,30,15000,24
             cod_orders,
             online_received,
             reported_cod_cash,
-            note_500,
-            note_200,
-            note_100,
-            note_50,
-            note_20,
-            note_10,
-            coin_1,
+            actual_cash_tally,
           });
         }
       }
