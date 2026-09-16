@@ -40,13 +40,7 @@ export function exportSingleDateExcel(dateStr, entries = [], deposits = [], dayS
   const depositRows = deposits.map((dep, index) => ({
     'S.No': index + 1,
     'Deposit Date': dep.entry_date,
-    'Bank Name': dep.deposit_bank || 'Bank',
-    'Branch': dep.deposit_branch || '',
-    'Challan Slip No': dep.cash_challan_no || '',
-    'Cash Deposited (₹)': Number(dep.cash_deposited) || 0,
-    'Bank UTR / Ref No': dep.bank_utr_ref_no || '',
-    'Online Remitted (₹)': Number(dep.online_remitted) || 0,
-    'Area Manager': dep.area_manager_name || 'Rajesh Kumar (AM)',
+    'Amount Deposited (₹)': Number(dep.cash_deposited) || 0,
     'Approval Status': dep.manager_approval_status || 'Approved & Reconciled',
   }));
 
@@ -121,15 +115,8 @@ export function exportAllDatesExcel(dailyEntries = [], remittanceEntries = []) {
   const depositRows = sortedDeposits.map((dep, index) => ({
     'S.No': index + 1,
     'Deposit Date': dep.entry_date,
-    'Bank Name': dep.deposit_bank || 'Bank',
-    'Branch': dep.deposit_branch || '',
-    'Challan Slip No': dep.cash_challan_no || '',
-    'Cash Deposited (₹)': Number(dep.cash_deposited) || 0,
-    'Bank UTR / Ref No': dep.bank_utr_ref_no || '',
-    'Online Remitted (₹)': Number(dep.online_remitted) || 0,
-    'Area Manager': dep.area_manager_name || 'Rajesh Kumar (AM)',
+    'Amount Deposited (₹)': Number(dep.cash_deposited) || 0,
     'Approval Status': dep.manager_approval_status || 'Approved & Reconciled',
-    'Sign-off Date': dep.signoff_date || dep.entry_date,
   }));
 
   const wsDeposits = XLSX.utils.json_to_sheet(depositRows.length > 0 ? depositRows : [
@@ -193,7 +180,7 @@ export function exportAllDatesExcel(dailyEntries = [], remittanceEntries = []) {
       'Total Settled (₹)': row.settled,
       'Net Variance (₹)': row.variance,
       'Bank Deposited (₹)': row.deposited,
-      'Vault in Hand (₹)': row.cashFE - row.deposited,
+      'Vault in Hand (₹)': row.settled - row.deposited,
     }));
 
   const wsDaily = XLSX.utils.json_to_sheet(dailyAggregateRows.length > 0 ? dailyAggregateRows : [

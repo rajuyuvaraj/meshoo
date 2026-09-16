@@ -103,7 +103,7 @@ export default function CalendarView({
       }
     });
 
-    const cashInVault = codCash - totalDepositAmount;
+    const cashInVault = totalSettled - totalDepositAmount;
 
     return {
       totalDeliveries,
@@ -196,8 +196,8 @@ export default function CalendarView({
         id: dep.id || dep.entry_date,
         type: 'deposit',
         date: dep.entry_date,
-        title: `Bank Deposit: ${dep.deposit_bank || 'Bank'}`,
-        subtitle: `${dep.deposit_branch || 'Main Branch'} • Slip: ${dep.cash_challan_no || 'N/A'}`,
+        title: 'Bank Deposit',
+        subtitle: `Recorded for ${formatDate(dep.entry_date, 'medium')}`,
         amount: Number(dep.cash_deposited) || 0,
         raw: dep,
       });
@@ -230,27 +230,27 @@ export default function CalendarView({
 
         <div className="kpi-card cash">
           <div className="kpi-label">
-            <span>COD Cash Collected</span>
+            <span>Total In-Hand Collections</span>
             <Banknote size={14} color="#d97706" />
           </div>
-          <div className="kpi-value">{formatINR(monthAggregates.codCash)}</div>
-          <div className="kpi-subtext">Physical cash from riders</div>
+          <div className="kpi-value">{formatINR(monthAggregates.totalSettled)}</div>
+          <div className="kpi-subtext">Online ({formatINR(monthAggregates.onlinePayments)}) + Cash ({formatINR(monthAggregates.codCash)})</div>
         </div>
 
         <div className="kpi-card deposit">
           <div className="kpi-label">
-            <span>Bank Cash Deposited</span>
+            <span>Bank Deposited</span>
             <Building2 size={14} color="#0d9488" />
           </div>
           <div className="kpi-value" style={{ color: '#0d9488' }}>
             {formatINR(monthAggregates.totalDepositAmount)}
           </div>
-          <div className="kpi-subtext">Physical bank branch deposits</div>
+          <div className="kpi-subtext">Total deposited to bank</div>
         </div>
 
         <div className={`kpi-card ${monthAggregates.cashInVault > 0 ? 'cash' : 'balanced'}`}>
           <div className="kpi-label">
-            <span>Cash in Vault / Hand</span>
+            <span>Net In-Hand / Vault</span>
             <Lock size={14} color={monthAggregates.cashInVault > 0 ? '#d97706' : '#10b981'} />
           </div>
           <div className="kpi-value" style={{ color: monthAggregates.cashInVault > 0 ? '#b45309' : '#059669' }}>

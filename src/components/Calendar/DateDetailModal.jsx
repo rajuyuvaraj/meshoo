@@ -47,7 +47,7 @@ export default function DateDetailModal({
     });
 
     const totalDeposited = deposits.reduce((sum, d) => sum + (Number(d.cash_deposited) || 0), 0);
-    const dayVaultBalance = actualCashTally - totalDeposited;
+    const dayVaultBalance = totalSettled - totalDeposited;
 
     let status = 'empty';
     if (entries.length > 0) {
@@ -145,8 +145,8 @@ export default function DateDetailModal({
             </div>
 
             <div style={{ background: '#f5f3ff', padding: '10px 12px', borderRadius: '10px', border: '1px solid #ddd6fe' }}>
-              <div style={{ fontSize: '0.72rem', color: '#6d28d9', fontWeight: 600 }}>CASH BY FE</div>
-              <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#7c3aed' }}>{formatINR(dayStats.actualCashTally)}</div>
+              <div style={{ fontSize: '0.72rem', color: '#6d28d9', fontWeight: 600 }}>TOTAL IN HAND</div>
+              <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#7c3aed' }}>{formatINR(dayStats.totalSettled)}</div>
             </div>
 
             <div style={{ background: '#f0fdfa', padding: '10px 12px', borderRadius: '10px', border: '1px solid #99f6e4' }}>
@@ -319,14 +319,14 @@ export default function DateDetailModal({
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
               <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f766e', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Building2 size={16} color="#0d9488" />
-                <span>2. Bank Cash Deposits for this Date ({deposits.length})</span>
+                <span>2. Bank Deposits for this Date ({deposits.length})</span>
               </h4>
               <button
                 className="btn btn-secondary btn-sm"
-                style={{ background: '#f0fdfa', borderColor: '#99f6e4', color: '#0f766e' }}
+                style={{ background: '#f0fdfa', borderColor: '#99f6e4', color: '#0f766e', fontWeight: 600 }}
                 onClick={() => onOpenDepositModal(dateStr, dayStats.dayVaultBalance)}
               >
-                <Plus size={14} />
+                <Building2 size={14} color="#0d9488" />
                 <span>+ Record Bank Deposit</span>
               </button>
             </div>
@@ -346,14 +346,14 @@ export default function DateDetailModal({
                     No bank cash deposit recorded for {formatDate(dateStr, 'short')}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: '#115e59' }}>
-                    Cash in Hand to Deposit: {formatINR(dayStats.actualCashTally)}
+                    Total In-Hand to Deposit: <strong>{formatINR(dayStats.dayVaultBalance)}</strong>
                   </div>
                 </div>
 
                 <button
                   className="btn btn-primary btn-sm"
                   style={{ background: '#0d9488', borderColor: '#0d9488' }}
-                  onClick={() => onOpenDepositModal(dateStr, dayStats.actualCashTally)}
+                  onClick={() => onOpenDepositModal(dateStr, dayStats.dayVaultBalance)}
                 >
                   <Building2 size={14} />
                   <span>Record Deposit Now</span>
@@ -364,11 +364,10 @@ export default function DateDetailModal({
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>Deposit Bank & Branch</th>
-                      <th>Challan / Slip No.</th>
-                      <th>UTR / CMS Ref No.</th>
-                      <th style={{ textAlign: 'right' }}>Cash Deposited</th>
-                      <th style={{ textAlign: 'center' }}>Audit Status</th>
+                      <th>Deposit Date</th>
+                      <th>Description</th>
+                      <th style={{ textAlign: 'right' }}>Amount Deposited</th>
+                      <th style={{ textAlign: 'center' }}>Status</th>
                       <th style={{ textAlign: 'center' }}>Action</th>
                     </tr>
                   </thead>
@@ -376,16 +375,12 @@ export default function DateDetailModal({
                     {deposits.map(dep => (
                       <tr key={dep.id || dep.entry_date}>
                         <td>
-                          <div style={{ fontWeight: 700, color: '#0f172a' }}>{dep.deposit_bank}</div>
-                          <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{dep.deposit_branch}</div>
+                          <div style={{ fontWeight: 700, color: '#0f172a' }}>{formatDate(dep.entry_date, 'medium')}</div>
                         </td>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>
-                          {dep.cash_challan_no || 'N/A'}
+                        <td>
+                          <div style={{ fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>Hub Bank Remittance</div>
                         </td>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>
-                          {dep.bank_utr_ref_no || 'N/A'}
-                        </td>
-                        <td style={{ textAlign: 'right', fontWeight: 800, color: '#0d9488', fontSize: '0.95rem' }}>
+                        <td style={{ textAlign: 'right', fontWeight: 800, color: '#0d9488', fontSize: '1rem' }}>
                           {formatINR(dep.cash_deposited)}
                         </td>
                         <td style={{ textAlign: 'center' }}>

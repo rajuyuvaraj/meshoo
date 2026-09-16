@@ -12,8 +12,8 @@ export default function RecordDepositModal({
   const [formData, setFormData] = useState({
     id: depositToEdit?.id || null,
     entry_date: depositToEdit?.entry_date || initialDate || new Date().toISOString().split('T')[0],
-    deposit_bank: depositToEdit?.deposit_bank || 'State Bank of India',
-    deposit_branch: depositToEdit?.deposit_branch || 'Varanasi Main Branch (Cantt)',
+    deposit_bank: depositToEdit?.deposit_bank || 'Bank Deposit',
+    deposit_branch: depositToEdit?.deposit_branch || '',
     cash_challan_no: depositToEdit?.cash_challan_no || '',
     bank_utr_ref_no: depositToEdit?.bank_utr_ref_no || '',
     cash_deposited: depositToEdit?.cash_deposited ?? (suggestedAmount > 0 ? suggestedAmount : ''),
@@ -57,16 +57,16 @@ export default function RecordDepositModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '540px' }}>
+      <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
         <div className="modal-header" style={{ background: 'linear-gradient(135deg, #042f2e 0%, #115e59 100%)', color: '#ffffff' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Building2 size={20} color="#5eead4" />
             <div>
               <h3 className="modal-title" style={{ color: '#ffffff' }}>
-                {depositToEdit ? 'Edit Bank Deposit Record' : 'Record Hub Bank Deposit'}
+                {depositToEdit ? 'Edit Bank Deposit' : 'Record Hub Bank Deposit'}
               </h3>
               <p style={{ fontSize: '0.75rem', color: '#ccfbf1' }}>
-                Record physical cash handed over to bank branch
+                Record collections deposited to bank
               </p>
             </div>
           </div>
@@ -95,26 +95,29 @@ export default function RecordDepositModal({
               </div>
             )}
 
-            {/* Suggested Cash in Hand Banner */}
+            {/* Suggested Available in Hand Banner */}
             {suggestedAmount > 0 && !depositToEdit && (
               <div style={{
                 background: '#f0fdfa',
                 border: '1px solid #99f6e4',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                marginBottom: '16px',
+                padding: '12px 16px',
+                borderRadius: '10px',
+                marginBottom: '18px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between'
               }}>
-                <span style={{ fontSize: '0.82rem', color: '#0f766e' }}>Available Cash in Vault:</span>
-                <span style={{ fontWeight: 700, color: '#0d9488', fontSize: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.74rem', color: '#0f766e', fontWeight: 600 }}>Total In-Hand to Deposit:</div>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Online UPI + Cash Collected</div>
+                </div>
+                <div style={{ fontWeight: 800, color: '#0d9488', fontSize: '1.25rem', fontFamily: 'var(--font-heading)' }}>
                   {formatINR(suggestedAmount)}
-                </span>
+                </div>
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Deposit Date <span className="required">*</span></label>
                 <input
@@ -129,62 +132,18 @@ export default function RecordDepositModal({
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Amount Deposited (₹) <span className="required">*</span></label>
                 <div className="input-prefix-wrapper">
-                  <span className="input-prefix">₹</span>
+                  <span className="input-prefix" style={{ color: '#0d9488', fontWeight: 700 }}>₹</span>
                   <input
                     type="number"
                     min="1"
                     className="form-input"
                     required
-                    style={{ fontWeight: 700, fontSize: '1.05rem', color: '#0d9488' }}
-                    placeholder="e.g. 50000"
+                    style={{ fontWeight: 700, fontSize: '1.1rem', color: '#0d9488' }}
+                    placeholder="0"
                     value={formData.cash_deposited}
                     onChange={e => setFormData({ ...formData, cash_deposited: e.target.value })}
                   />
                 </div>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Deposit Bank & Branch</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Bank Name (e.g. State Bank of India)"
-                  value={formData.deposit_bank}
-                  onChange={e => setFormData({ ...formData, deposit_bank: e.target.value })}
-                />
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Branch Name (e.g. Varanasi Cantt)"
-                  value={formData.deposit_branch}
-                  onChange={e => setFormData({ ...formData, deposit_branch: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Cash Challan / Slip No.</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. SBI-VNS-5421"
-                  value={formData.cash_challan_no}
-                  onChange={e => setFormData({ ...formData, cash_challan_no: e.target.value })}
-                />
-              </div>
-
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Bank UTR / CMS Ref No.</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. SBIN00481928"
-                  value={formData.bank_utr_ref_no}
-                  onChange={e => setFormData({ ...formData, bank_utr_ref_no: e.target.value })}
-                />
               </div>
             </div>
           </div>
