@@ -228,7 +228,12 @@ export default function CalendarView({
           <div className="kpi-subtext">UPI / Prepaid / QR</div>
         </div>
 
-        <div className="kpi-card cash">
+        <div 
+          className="kpi-card cash" 
+          style={{ cursor: 'pointer' }}
+          onClick={() => onOpenDepositModal(currentDate || new Date().toISOString().split('T')[0], monthAggregates.cashInVault)}
+          title="Click to view full In-Hand collections & record deposit"
+        >
           <div className="kpi-label">
             <span>Total In-Hand Collections</span>
             <Banknote size={14} color="#d97706" />
@@ -237,7 +242,12 @@ export default function CalendarView({
           <div className="kpi-subtext">Online ({formatINR(monthAggregates.onlinePayments)}) + Cash ({formatINR(monthAggregates.codCash)})</div>
         </div>
 
-        <div className="kpi-card deposit">
+        <div 
+          className="kpi-card deposit" 
+          style={{ cursor: 'pointer' }}
+          onClick={() => onOpenDepositModal(currentDate || new Date().toISOString().split('T')[0], monthAggregates.cashInVault)}
+          title="Click to view bank deposit breakdown"
+        >
           <div className="kpi-label">
             <span>Bank Deposited</span>
             <Building2 size={14} color="#0d9488" />
@@ -248,7 +258,12 @@ export default function CalendarView({
           <div className="kpi-subtext">Total deposited to bank</div>
         </div>
 
-        <div className={`kpi-card ${monthAggregates.cashInVault > 0 ? 'cash' : 'balanced'}`}>
+        <div 
+          className={`kpi-card ${monthAggregates.cashInVault > 0 ? 'cash' : 'balanced'}`} 
+          style={{ cursor: 'pointer' }}
+          onClick={() => onOpenDepositModal(currentDate || new Date().toISOString().split('T')[0], monthAggregates.cashInVault)}
+          title="Click to record deposit for pending vault cash"
+        >
           <div className="kpi-label">
             <span>Net In-Hand / Vault</span>
             <Lock size={14} color={monthAggregates.cashInVault > 0 ? '#d97706' : '#10b981'} />
