@@ -147,11 +147,15 @@ export default function DateDetailModal({
             <div style={{ background: '#f5f3ff', padding: '10px 12px', borderRadius: '10px', border: '1px solid #ddd6fe' }}>
               <div style={{ fontSize: '0.72rem', color: '#6d28d9', fontWeight: 600 }}>TOTAL IN HAND</div>
               <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#7c3aed' }}>{formatINR(dayStats.totalSettled)}</div>
+              <div style={{ fontSize: '0.68rem', color: '#6d28d9', marginTop: '2px' }}>
+                Online ({formatINR(dayStats.onlineReceived)}) + Cash ({formatINR(dayStats.actualCashTally)})
+              </div>
             </div>
 
             <div style={{ background: '#f0fdfa', padding: '10px 12px', borderRadius: '10px', border: '1px solid #99f6e4' }}>
               <div style={{ fontSize: '0.72rem', color: '#0f766e', fontWeight: 600 }}>BANK DEPOSITED</div>
               <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#0d9488' }}>{formatINR(dayStats.totalDeposited)}</div>
+              <div style={{ fontSize: '0.68rem', color: '#0f766e', marginTop: '2px' }}>Deposited to Bank</div>
             </div>
 
             <div style={{ 
@@ -165,6 +169,9 @@ export default function DateDetailModal({
               </div>
               <div style={{ fontSize: '1.15rem', fontWeight: 700, color: dayStats.dayVaultBalance > 0 ? '#d97706' : '#10b981' }}>
                 {formatINR(dayStats.dayVaultBalance)}
+              </div>
+              <div style={{ fontSize: '0.68rem', color: dayStats.dayVaultBalance > 0 ? '#92400e' : '#065f46', marginTop: '2px' }}>
+                {dayStats.dayVaultBalance > 0 ? 'Pending bank deposit' : 'Fully deposited'}
               </div>
             </div>
           </div>

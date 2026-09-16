@@ -342,8 +342,8 @@ export default function EntryWizardModal({
                 </div>
 
                 <div style={{ background: '#eef2ff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #c7d2fe' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#4338ca', fontWeight: 600 }}>Total Settled</div>
-                  <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#4338ca' }}>{formatINR(totalSettled)}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#4338ca', fontWeight: 700 }}>Total In-Hand (Settled)</div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#4338ca' }}>{formatINR(totalSettled)}</div>
                 </div>
 
                 <div style={{ 
