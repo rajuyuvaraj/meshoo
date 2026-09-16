@@ -275,6 +275,8 @@ export default function App() {
           initialDate={depositModalState.date}
           depositToEdit={depositModalState.depositToEdit}
           suggestedAmount={depositModalState.suggestedAmount}
+          dailyEntries={dailyEntries}
+          remittanceEntries={remittanceEntries}
           onClose={handleCloseDepositModal}
           onSave={handleSaveDeposit}
         />
