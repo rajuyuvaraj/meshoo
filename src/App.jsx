@@ -119,7 +119,18 @@ export default function App() {
 
   const handleSaveDailyEntry = async (entryData) => {
     const isEdit = Boolean(entryData.id);
-    await dataService.saveDailyEntry(entryData);
+    const saved = await dataService.saveDailyEntry(entryData);
+    if (saved) {
+      setDailyEntries(prev => {
+        const idx = prev.findIndex(e => e.id === saved.id || (e.agent_name === saved.agent_name && e.entry_date === saved.entry_date));
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = { ...updated[idx], ...saved };
+          return updated;
+        }
+        return [saved, ...prev];
+      });
+    }
     await loadData();
     addToast(isEdit ? `Shift entry for ${entryData.agent_name} updated!` : `Shift entry for ${entryData.agent_name} saved!`);
   };
@@ -127,6 +138,7 @@ export default function App() {
   const handleDeleteDailyEntry = async (entryId) => {
     if (window.confirm('Are you sure you want to delete this shift reconciliation entry?')) {
       await dataService.deleteDailyEntry(entryId);
+      setDailyEntries(prev => prev.filter(e => e.id !== entryId));
       await loadData();
       addToast('Entry removed from shift records');
     }
@@ -134,6 +146,8 @@ export default function App() {
 
   const handleToggleSalary = async (entry) => {
     const updatedStatus = !entry.salary_paid;
+    // Immediate state update
+    setDailyEntries(prev => prev.map(e => e.id === entry.id || (e.agent_name === entry.agent_name && e.entry_date === entry.entry_date) ? { ...e, salary_paid: updatedStatus } : e));
     await dataService.saveDailyEntry({
       ...entry,
       salary_paid: updatedStatus,

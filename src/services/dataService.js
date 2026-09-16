@@ -8,7 +8,46 @@ const STORAGE_KEYS = {
   REMITTANCE_ENTRIES: 'vns_hub_remittance_entries',
   KNOWN_AGENTS: 'vns_hub_known_agents',
   AUTH_SESSION: 'vns_hub_secure_session',
+  SALARY_STATUS_MAP: 'vns_hub_salary_status_map',
 };
+
+function getSalaryStatusMap() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.SALARY_STATUS_MAP) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function setSalaryStatusRecord(id, agentName, entryDate, isPaid) {
+  try {
+    const map = getSalaryStatusMap();
+    if (id) map[id] = Boolean(isPaid);
+    if (agentName && entryDate) {
+      map[`${agentName.trim().toLowerCase()}_${entryDate}`] = Boolean(isPaid);
+    }
+    localStorage.setItem(STORAGE_KEYS.SALARY_STATUS_MAP, JSON.stringify(map));
+  } catch (err) {
+    console.warn('Could not persist salary status to map', err);
+  }
+}
+
+function resolveSalaryPaid(item) {
+  const map = getSalaryStatusMap();
+  if (item.salary_paid !== undefined && item.salary_paid !== null) {
+    return item.salary_paid === true || item.salary_paid === 'true' || item.salary_paid === 1 || item.salary_paid === 'PAID';
+  }
+  if (item.id && map[item.id] !== undefined) {
+    return Boolean(map[item.id]);
+  }
+  if (item.agent_name && item.entry_date) {
+    const key = `${item.agent_name.trim().toLowerCase()}_${item.entry_date}`;
+    if (map[key] !== undefined) {
+      return Boolean(map[key]);
+    }
+  }
+  return false;
+}
 
 // Default initial agent suggestions for autocomplete
 const INITIAL_KNOWN_AGENTS = [
@@ -219,7 +258,12 @@ export const dataService = {
       }
 
       const { data, error } = await query;
-      if (!error && data) return data;
+      if (!error && data) {
+        return data.map(row => ({
+          ...row,
+          salary_paid: resolveSalaryPaid(row),
+        }));
+      }
     }
 
     ensureLocalStorageInitialized();
@@ -231,7 +275,10 @@ export const dataService = {
       return true;
     });
 
-    return filtered.sort((a, b) => (a.entry_date < b.entry_date ? 1 : -1));
+    return filtered.map(row => ({
+      ...row,
+      salary_paid: resolveSalaryPaid(row),
+    })).sort((a, b) => (a.entry_date < b.entry_date ? 1 : -1));
   },
 
   async saveDailyEntry(entry) {
@@ -246,6 +293,7 @@ export const dataService = {
     const totalSettled = onlineReceived + actualCashTally;
     const cashVariance = totalSettled - reportedCodCash;
     const auditStatus = getAuditStatus(cashVariance);
+    const isSalaryPaid = Boolean(entry.salary_paid);
 
     const payload = {
       agent_name: entry.agent_name?.trim() || 'Rider',
@@ -267,11 +315,33 @@ export const dataService = {
       total_settled: totalSettled,
       cash_variance: cashVariance,
       audit_status: auditStatus,
-      salary_paid: Boolean(entry.salary_paid),
+      salary_paid: isSalaryPaid,
       updated_at: new Date().toISOString(),
     };
 
     await this.recordKnownAgent(payload.agent_name, payload.login_account_id);
+    setSalaryStatusRecord(entry.id, payload.agent_name, payload.entry_date, isSalaryPaid);
+
+    // Also always update LocalStorage mirror
+    ensureLocalStorageInitialized();
+    const localEntries = JSON.parse(localStorage.getItem(STORAGE_KEYS.DAILY_ENTRIES) || '[]');
+    let localResultEntry;
+    if (entry.id) {
+      const idx = localEntries.findIndex(e => e.id === entry.id || (e.agent_name === payload.agent_name && e.entry_date === payload.entry_date));
+      if (idx >= 0) {
+        localEntries[idx] = { ...localEntries[idx], ...payload, id: entry.id };
+        localResultEntry = localEntries[idx];
+      }
+    }
+    if (!localResultEntry) {
+      localResultEntry = {
+        id: entry.id || `de-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        ...payload,
+        created_at: new Date().toISOString(),
+      };
+      localEntries.push(localResultEntry);
+    }
+    localStorage.setItem(STORAGE_KEYS.DAILY_ENTRIES, JSON.stringify(localEntries));
 
     if (isSupabaseConfigured && supabase) {
       const executeSupabase = async (dataPayload) => {
@@ -297,41 +367,25 @@ export const dataService = {
 
       try {
         const res = await executeSupabase(payload);
-        return { ...res, salary_paid: payload.salary_paid };
+        if (res?.id) {
+          setSalaryStatusRecord(res.id, payload.agent_name, payload.entry_date, isSalaryPaid);
+        }
+        return { ...res, salary_paid: isSalaryPaid };
       } catch (err) {
         // Fallback without salary_paid if column doesn't exist on remote table
         if (err?.message?.includes('salary_paid') || err?.code === '42703' || err?.message?.includes('column')) {
           const { salary_paid, ...fallbackPayload } = payload;
           const res = await executeSupabase(fallbackPayload);
-          return { ...res, salary_paid: payload.salary_paid };
+          if (res?.id) {
+            setSalaryStatusRecord(res.id, payload.agent_name, payload.entry_date, isSalaryPaid);
+          }
+          return { ...res, salary_paid: isSalaryPaid };
         }
         throw err;
       }
     }
 
-    ensureLocalStorageInitialized();
-    const entries = JSON.parse(localStorage.getItem(STORAGE_KEYS.DAILY_ENTRIES) || '[]');
-    let resultEntry;
-
-    if (entry.id) {
-      const idx = entries.findIndex(e => e.id === entry.id);
-      if (idx >= 0) {
-        entries[idx] = { ...entries[idx], ...payload };
-        resultEntry = entries[idx];
-      }
-    }
-
-    if (!resultEntry) {
-      resultEntry = {
-        id: `de-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-        ...payload,
-        created_at: new Date().toISOString(),
-      };
-      entries.push(resultEntry);
-    }
-
-    localStorage.setItem(STORAGE_KEYS.DAILY_ENTRIES, JSON.stringify(entries));
-    return resultEntry;
+    return localResultEntry;
   },
 
   async deleteDailyEntry(id) {
