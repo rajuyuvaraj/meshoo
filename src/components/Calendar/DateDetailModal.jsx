@@ -112,14 +112,14 @@ export default function DateDetailModal({
             </div>
 
             <div style={{ background: '#f0f9ff', padding: '10px 12px', borderRadius: '10px', border: '1px solid #bae6fd' }}>
-              <div style={{ fontSize: '0.72rem', color: '#0369a1', fontWeight: 600 }}>DELIVERIES (COD)</div>
+              <div style={{ fontSize: '0.72rem', color: '#0369a1', fontWeight: 600 }}>TOTAL DELIVERIES</div>
               <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#0284c7' }}>
-                {dayStats.totalDelivered} <span style={{ fontSize: '0.75rem', color: '#64748b' }}>({dayStats.codOrders} COD)</span>
+                {dayStats.totalDelivered} <span style={{ fontSize: '0.75rem', color: '#64748b' }}>parcels</span>
               </div>
             </div>
 
             <div style={{ background: '#f5f3ff', padding: '10px 12px', borderRadius: '10px', border: '1px solid #ddd6fe' }}>
-              <div style={{ fontSize: '0.72rem', color: '#6d28d9', fontWeight: 600 }}>CASH COLLECTED</div>
+              <div style={{ fontSize: '0.72rem', color: '#6d28d9', fontWeight: 600 }}>CASH BY FE</div>
               <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#7c3aed' }}>{formatINR(dayStats.actualCashTally)}</div>
             </div>
 
@@ -183,10 +183,10 @@ export default function DateDetailModal({
                   <thead>
                     <tr>
                       <th style={{ minWidth: '130px' }}>Agent Name & ID</th>
-                      <th className="th-group-delivery" style={{ textAlign: 'center' }}>Delivered / COD</th>
+                      <th className="th-group-delivery" style={{ textAlign: 'center' }}>Delivered</th>
+                      <th className="th-group-reported" style={{ textAlign: 'right' }}>COD App Target</th>
                       <th className="th-group-reported" style={{ textAlign: 'right' }}>Online UPI</th>
-                      <th className="th-group-reported" style={{ textAlign: 'right' }}>Reported COD</th>
-                      <th className="th-group-tally" style={{ textAlign: 'right' }}>Actual Cash</th>
+                      <th className="th-group-tally" style={{ textAlign: 'right' }}>Cash by FE</th>
                       <th style={{ textAlign: 'right' }}>Total Settled</th>
                       <th style={{ textAlign: 'right' }}>Variance</th>
                       <th style={{ textAlign: 'center' }}>Audit Status</th>
@@ -208,15 +208,14 @@ export default function DateDetailModal({
                               <div style={{ fontSize: '0.72rem', color: '#64748b', fontFamily: 'var(--font-mono)' }}>{loginId}</div>
                             )}
                           </td>
-                          <td style={{ textAlign: 'center' }}>
-                            <span style={{ fontWeight: 700 }}>{entry.total_delivered}</span>
-                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}> / {entry.cod_orders} COD</span>
-                          </td>
-                          <td style={{ textAlign: 'right', fontWeight: 600 }}>
-                            {formatINR(entry.online_received)}
+                          <td style={{ textAlign: 'center', fontWeight: 700 }}>
+                            {entry.total_delivered}
                           </td>
                           <td style={{ textAlign: 'right', fontWeight: 600 }}>
                             {formatINR(entry.reported_cod_cash)}
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: 600, color: '#059669' }}>
+                            {formatINR(entry.online_received)}
                           </td>
                           <td style={{ textAlign: 'right', fontWeight: 700, color: '#4f46e5' }}>
                             {formatINR(entry.actual_cash_tally)}

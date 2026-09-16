@@ -180,7 +180,7 @@ export default function CalendarView({
         type: 'collection',
         date: entry.entry_date,
         title: entry.agent_name,
-        subtitle: `${entry.total_delivered} Parcels (${entry.cod_orders} COD) • ${entry.login_account_id || 'LOG-VNS'}`,
+        subtitle: `${entry.total_delivered} Parcels • ${entry.login_account_id || 'LOG-VNS'}`,
         amount: Number(entry.actual_cash_tally) || 0,
         online: Number(entry.online_received) || 0,
         variance: Number(entry.cash_variance) || 0,
