@@ -352,11 +352,23 @@ export default function RecordDepositModal({
                                 <button
                                   type="button"
                                   className="btn-icon"
-                                  style={{ color: '#ef4444', width: '28px', height: '28px' }}
+                                  style={{
+                                    color: '#ef4444',
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '6px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer'
+                                  }}
                                   title="Delete deposit transaction"
-                                  onClick={() => onDeleteDeposit(dep.id || dep.entry_date)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDeleteDeposit(dep.id, dep.entry_date);
+                                  }}
                                 >
-                                  <Trash2 size={14} />
+                                  <Trash2 size={16} />
                                 </button>
                               </td>
                             )}

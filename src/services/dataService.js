@@ -388,16 +388,23 @@ export const dataService = {
     return localResultEntry;
   },
 
-  async deleteDailyEntry(id) {
-    if (isSupabaseConfigured && supabase) {
-      const { error } = await supabase.from('daily_entries').delete().eq('id', id);
-      if (error) throw error;
-      return true;
-    }
+  async deleteDailyEntry(id, agentName = null, entryDate = null) {
     ensureLocalStorageInitialized();
     const entries = JSON.parse(localStorage.getItem(STORAGE_KEYS.DAILY_ENTRIES) || '[]');
-    const remaining = entries.filter(e => e.id !== id);
+    const remaining = entries.filter(e => e.id !== id && !(agentName && entryDate && e.agent_name === agentName && e.entry_date === entryDate));
     localStorage.setItem(STORAGE_KEYS.DAILY_ENTRIES, JSON.stringify(remaining));
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        if (id && !id.startsWith('de-')) {
+          await supabase.from('daily_entries').delete().eq('id', id);
+        } else if (agentName && entryDate) {
+          await supabase.from('daily_entries').delete().match({ agent_name: agentName, entry_date: entryDate });
+        }
+      } catch (err) {
+        console.error('Supabase daily entry delete error:', err);
+      }
+    }
     return true;
   },
 
@@ -485,6 +492,23 @@ export const dataService = {
       updated_at: new Date().toISOString(),
     };
 
+    ensureLocalStorageInitialized();
+    const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.REMITTANCE_ENTRIES) || '[]');
+    const idx = list.findIndex(r => r.entry_date === payload.entry_date);
+    let localResult;
+    if (idx >= 0) {
+      list[idx] = { ...list[idx], ...payload };
+      localResult = list[idx];
+    } else {
+      localResult = {
+        id: remittanceData.id || `rem-${Date.now()}`,
+        ...payload,
+        created_at: new Date().toISOString(),
+      };
+      list.push(localResult);
+    }
+    localStorage.setItem(STORAGE_KEYS.REMITTANCE_ENTRIES, JSON.stringify(list));
+
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase
         .from('remittance_entries')
@@ -495,39 +519,34 @@ export const dataService = {
       return data;
     }
 
-    ensureLocalStorageInitialized();
-    const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.REMITTANCE_ENTRIES) || '[]');
-    const idx = list.findIndex(r => r.entry_date === payload.entry_date);
-    let result;
-    if (idx >= 0) {
-      list[idx] = { ...list[idx], ...payload };
-      result = list[idx];
-    } else {
-      result = {
-        id: `rem-${Date.now()}`,
-        ...payload,
-        created_at: new Date().toISOString(),
-      };
-      list.push(result);
-    }
-    localStorage.setItem(STORAGE_KEYS.REMITTANCE_ENTRIES, JSON.stringify(list));
-    return result;
+    return localResult;
   },
 
-  async deleteRemittanceEntry(idOrDate) {
-    if (isSupabaseConfigured && supabase) {
-      if (idOrDate.includes('-')) {
-        await supabase.from('remittance_entries').delete().eq('entry_date', idOrDate);
-      } else {
-        await supabase.from('remittance_entries').delete().eq('id', idOrDate);
-      }
-      return true;
-    }
-
+  async deleteRemittanceEntry(idOrDate, entryDate = null) {
     ensureLocalStorageInitialized();
     const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.REMITTANCE_ENTRIES) || '[]');
-    const remaining = list.filter(r => r.id !== idOrDate && r.entry_date !== idOrDate);
+    const remaining = list.filter(r => {
+      if (idOrDate && r.id === idOrDate) return false;
+      if (idOrDate && r.entry_date === idOrDate) return false;
+      if (entryDate && r.entry_date === entryDate) return false;
+      return true;
+    });
     localStorage.setItem(STORAGE_KEYS.REMITTANCE_ENTRIES, JSON.stringify(remaining));
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const isDateString = typeof idOrDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(idOrDate);
+        if (isDateString) {
+          await supabase.from('remittance_entries').delete().eq('entry_date', idOrDate);
+        } else if (idOrDate && !String(idOrDate).startsWith('rem-')) {
+          await supabase.from('remittance_entries').delete().eq('id', idOrDate);
+        } else if (entryDate) {
+          await supabase.from('remittance_entries').delete().eq('entry_date', entryDate);
+        }
+      } catch (err) {
+        console.error('Supabase deleteRemittanceEntry error:', err);
+      }
+    }
     return true;
   },
 

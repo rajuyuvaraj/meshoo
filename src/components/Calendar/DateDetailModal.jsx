@@ -306,7 +306,10 @@ export default function DateDetailModal({
                                 className="btn-icon"
                                 style={{ width: 28, height: 28, color: '#ef4444' }}
                                 title="Delete Entry"
-                                onClick={() => onDeleteEntry(entry.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteEntry(entry.id, entry.agent_name, entry.entry_date);
+                                }}
                               >
                                 <Trash2 size={14} />
                               </button>
@@ -398,7 +401,10 @@ export default function DateDetailModal({
                             className="btn-icon"
                             style={{ width: 28, height: 28, color: '#ef4444' }}
                             title="Delete Deposit Record"
-                            onClick={() => onDeleteDeposit(dep.id || dep.entry_date)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteDeposit(dep.id, dep.entry_date);
+                            }}
                           >
                             <Trash2 size={14} />
                           </button>
