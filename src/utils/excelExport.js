@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { calculateRiderSalary } from './formatters';
 
 /**
  * Downloads single date Excel sheet
@@ -7,21 +8,28 @@ export function exportSingleDateExcel(dateStr, entries = [], deposits = [], dayS
   const wb = XLSX.utils.book_new();
 
   // 1. Sheet 1: Rider Shift Collections
-  const shiftRows = entries.map((entry, index) => ({
-    'S.No': index + 1,
-    'Shift Date': entry.entry_date,
-    'Rider Name': entry.agent_name || 'Rider',
-    'Login Account ID': entry.login_account_id || '',
-    'Hub Location': entry.hub_location || 'Varanasi Hub',
-    'Delivered Parcels': Number(entry.total_delivered) || 0,
-    'COD App Target (₹)': Number(entry.reported_cod_cash) || 0,
-    'Online UPI Received (₹)': Number(entry.online_received) || 0,
-    'Cash Collected by FE (₹)': Number(entry.actual_cash_tally) || 0,
-    'Total Settled (₹)': Number(entry.total_settled) || 0,
-    'Variance (₹)': Number(entry.cash_variance) || 0,
-    'Audit Status': entry.audit_status || 'Balanced',
-    'Salary Status': entry.salary_paid ? 'PAID' : 'PENDING',
-  }));
+  const shiftRows = entries.map((entry, index) => {
+    const sal = calculateRiderSalary(entry.total_delivered, 18, 1);
+    return {
+      'S.No': index + 1,
+      'Shift Date': entry.entry_date,
+      'Rider Name': entry.agent_name || 'Rider',
+      'Login Account ID': entry.login_account_id || '',
+      'Hub Location': entry.hub_location || 'Varanasi Hub',
+      'Delivered Parcels': Number(entry.total_delivered) || 0,
+      'COD App Target (₹)': Number(entry.reported_cod_cash) || 0,
+      'Online UPI Received (₹)': Number(entry.online_received) || 0,
+      'Cash Collected by FE (₹)': Number(entry.actual_cash_tally) || 0,
+      'Total Settled (₹)': Number(entry.total_settled) || 0,
+      'Variance (₹)': Number(entry.cash_variance) || 0,
+      'Audit Status': entry.audit_status || 'Balanced',
+      'Salary Rate (₹)': 18,
+      'Gross Salary (₹)': sal.gross,
+      'TDS 1% (₹)': sal.tds,
+      'Net Salary Payable (₹)': sal.net,
+      'Salary Status': entry.salary_paid ? 'PAID' : 'PENDING',
+    };
+  });
 
   const wsShifts = XLSX.utils.json_to_sheet(shiftRows.length > 0 ? shiftRows : [
     { 'Note': `No rider shift entries for ${dateStr}` }
@@ -48,6 +56,8 @@ export function exportSingleDateExcel(dateStr, entries = [], deposits = [], dayS
   XLSX.utils.book_append_sheet(wb, wsDeposits, 'Bank Deposits');
 
   // 3. Sheet 3: Daily Executive Summary
+  const totalNetSalary = entries.reduce((sum, e) => sum + calculateRiderSalary(e.total_delivered, 18, 1).net, 0);
+
   const summaryRows = [
     { 'Metric': 'Date', 'Value': dateStr },
     { 'Metric': 'Hub Name', 'Value': 'Varanasi Hub (VNS-01)' },
@@ -60,6 +70,7 @@ export function exportSingleDateExcel(dateStr, entries = [], deposits = [], dayS
     { 'Metric': 'Net Cash Variance (₹)', 'Value': dayStats.cashVariance ?? 0 },
     { 'Metric': 'Total Bank Cash Deposited (₹)', 'Value': dayStats.totalDeposited ?? 0 },
     { 'Metric': 'Vault Cash in Hand (₹)', 'Value': dayStats.dayVaultBalance ?? 0 },
+    { 'Metric': 'Total Rider Net Salary Payout (₹)', 'Value': totalNetSalary },
   ];
 
   const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
@@ -77,21 +88,28 @@ export function exportAllDatesExcel(dailyEntries = [], remittanceEntries = []) {
 
   // 1. Sheet 1: All Rider Shift Reconciliations
   const sortedEntries = [...dailyEntries].sort((a, b) => (a.entry_date < b.entry_date ? 1 : -1));
-  const shiftRows = sortedEntries.map((entry, index) => ({
-    'S.No': index + 1,
-    'Shift Date': entry.entry_date,
-    'Rider Name': entry.agent_name || 'Rider',
-    'Login Account ID': entry.login_account_id || '',
-    'Hub Location': entry.hub_location || 'Varanasi Hub',
-    'Delivered Parcels': Number(entry.total_delivered) || 0,
-    'COD App Target (₹)': Number(entry.reported_cod_cash) || 0,
-    'Online UPI Received (₹)': Number(entry.online_received) || 0,
-    'Cash Collected by FE (₹)': Number(entry.actual_cash_tally) || 0,
-    'Total Settled (₹)': Number(entry.total_settled) || 0,
-    'Variance (₹)': Number(entry.cash_variance) || 0,
-    'Audit Status': entry.audit_status || 'Balanced',
-    'Salary Status': entry.salary_paid ? 'PAID' : 'PENDING',
-  }));
+  const shiftRows = sortedEntries.map((entry, index) => {
+    const sal = calculateRiderSalary(entry.total_delivered, 18, 1);
+    return {
+      'S.No': index + 1,
+      'Shift Date': entry.entry_date,
+      'Rider Name': entry.agent_name || 'Rider',
+      'Login Account ID': entry.login_account_id || '',
+      'Hub Location': entry.hub_location || 'Varanasi Hub',
+      'Delivered Parcels': Number(entry.total_delivered) || 0,
+      'COD App Target (₹)': Number(entry.reported_cod_cash) || 0,
+      'Online UPI Received (₹)': Number(entry.online_received) || 0,
+      'Cash Collected by FE (₹)': Number(entry.actual_cash_tally) || 0,
+      'Total Settled (₹)': Number(entry.total_settled) || 0,
+      'Variance (₹)': Number(entry.cash_variance) || 0,
+      'Audit Status': entry.audit_status || 'Balanced',
+      'Salary Rate (₹)': 18,
+      'Gross Salary (₹)': sal.gross,
+      'TDS 1% (₹)': sal.tds,
+      'Net Salary Payable (₹)': sal.net,
+      'Salary Status': entry.salary_paid ? 'PAID' : 'PENDING',
+    };
+  });
 
   const wsShifts = XLSX.utils.json_to_sheet(shiftRows.length > 0 ? shiftRows : [
     { 'Note': 'No shift entries available' }

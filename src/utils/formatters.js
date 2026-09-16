@@ -91,3 +91,28 @@ export const DENOMINATIONS = [
   { key: 'note_10', value: 10, label: '₹10 Note', color: '#8b5cf6', tag: '₹10' },
   { key: 'coin_1', value: 1, label: '₹1 Coins', color: '#64748b', tag: '₹1 Coin' },
 ];
+
+/**
+ * Calculate Rider Shift Salary Payout
+ * Standard Hub Rule: ₹18 per delivered parcel, less 1% TDS deduction
+ * Example: 30 parcels * ₹18 = ₹540; 1% TDS = ₹5.40; Net = ₹534.60
+ */
+export function calculateRiderSalary(deliveredParcels, ratePerParcel = 18, tdsPercent = 1) {
+  const count = Math.max(0, Number(deliveredParcels) || 0);
+  const gross = count * ratePerParcel;
+  const tds = (gross * tdsPercent) / 100;
+  const net = gross - tds;
+
+  return {
+    count,
+    ratePerParcel,
+    gross,
+    tdsPercent,
+    tds,
+    net,
+    grossFormatted: `₹${gross.toLocaleString('en-IN')}`,
+    tdsFormatted: `₹${tds.toFixed(2)}`,
+    netFormatted: `₹${net.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    formulaStr: `${count} × ₹${ratePerParcel} = ₹${gross.toLocaleString('en-IN')} − 1% TDS (₹${tds.toFixed(2)}) = ₹${net.toFixed(2)}`
+  };
+}

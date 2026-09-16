@@ -14,7 +14,7 @@ import {
   CheckCircle2,
   Clock
 } from 'lucide-react';
-import { formatINR, getAuditStatus } from '../../utils/formatters';
+import { formatINR, getAuditStatus, calculateRiderSalary } from '../../utils/formatters';
 
 export default function EntryWizardModal({
   initialDate,
@@ -51,6 +51,9 @@ export default function EntryWizardModal({
   // Cash Variance = (Online Received + Cash Collected by FE) - Reported COD Cash (App)
   const cashVariance = totalSettled - reportedCodCash;
   const auditStatus = getAuditStatus(cashVariance);
+
+  // Rider Salary Calculation (₹18 per delivered parcel - 1% TDS)
+  const salaryCalc = calculateRiderSalary(formData.total_delivered, 18, 1);
 
   // When manager types an agent name, auto-suggest login id if matched
   const handleAgentNameChange = (nameVal) => {
@@ -367,87 +370,122 @@ export default function EntryWizardModal({
               </div>
             </div>
 
-            {/* 5. RIDER SALARY PAYOUT STATUS */}
+            {/* 5. RIDER SALARY PAYOUT */}
             <div style={{
               background: '#f8fafc',
               borderRadius: '12px',
               border: '1px solid #e2e8f0',
-              padding: '14px 16px',
+              padding: '16px',
               marginTop: '16px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '12px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: '8px',
-                  background: formData.salary_paid ? '#ecfdf5' : '#fffbeb',
-                  color: formData.salary_paid ? '#059669' : '#d97706',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: `1px solid ${formData.salary_paid ? '#a7f3d0' : '#fde68a'}`
-                }}>
-                  <Wallet size={18} />
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
+                marginBottom: '12px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: '8px',
+                    background: formData.salary_paid ? '#ecfdf5' : '#fffbeb',
+                    color: formData.salary_paid ? '#059669' : '#d97706',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: `1px solid ${formData.salary_paid ? '#a7f3d0' : '#fde68a'}`
+                  }}>
+                    <Wallet size={18} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1e293b' }}>
+                      5. Rider Shift Salary Payout
+                    </div>
+                    <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                      Rate: <strong>₹18</strong> / parcel • <strong>1%</strong> TDS deduction
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#1e293b' }}>
-                    5. Rider Salary Payout
-                  </div>
-                  <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
-                    Mark whether this rider's shift salary/commission is paid
-                  </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, salary_paid: false }))}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      border: !formData.salary_paid ? '2px solid #f59e0b' : '1px solid #cbd5e1',
+                      background: !formData.salary_paid ? '#fef3c7' : '#ffffff',
+                      color: !formData.salary_paid ? '#92400e' : '#64748b',
+                      fontWeight: 700,
+                      fontSize: '0.82rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <Clock size={15} />
+                    <span>Unpaid / Pending</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, salary_paid: true }))}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      border: formData.salary_paid ? '2px solid #10b981' : '1px solid #cbd5e1',
+                      background: formData.salary_paid ? '#d1fae5' : '#ffffff',
+                      color: formData.salary_paid ? '#065f46' : '#64748b',
+                      fontWeight: 700,
+                      fontSize: '0.82rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <CheckCircle2 size={15} />
+                    <span>✓ Salary Paid</span>
+                  </button>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, salary_paid: false }))}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: '8px',
-                    border: !formData.salary_paid ? '2px solid #f59e0b' : '1px solid #cbd5e1',
-                    background: !formData.salary_paid ? '#fef3c7' : '#ffffff',
-                    color: !formData.salary_paid ? '#92400e' : '#64748b',
-                    fontWeight: 700,
-                    fontSize: '0.82rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <Clock size={15} />
-                  <span>Unpaid / Pending</span>
-                </button>
+              {/* Dynamic Calculation Formula Display */}
+              <div style={{
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                padding: '12px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}>
+                <div>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>
+                    Payout Breakdown ({salaryCalc.count} Parcels @ ₹18)
+                  </div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1e293b', marginTop: '3px', fontFamily: 'var(--font-mono)' }}>
+                    {salaryCalc.count} × ₹18 = {salaryCalc.grossFormatted} − 1% TDS ({salaryCalc.tdsFormatted})
+                  </div>
+                </div>
 
-                <button
-                  type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, salary_paid: true }))}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: '8px',
-                    border: formData.salary_paid ? '2px solid #10b981' : '1px solid #cbd5e1',
-                    background: formData.salary_paid ? '#d1fae5' : '#ffffff',
-                    color: formData.salary_paid ? '#065f46' : '#64748b',
-                    fontWeight: 700,
-                    fontSize: '0.82rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <CheckCircle2 size={15} />
-                  <span>✓ Salary Paid</span>
-                </button>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 700, textTransform: 'uppercase' }}>
+                    Total Net Payable
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#047857', fontFamily: 'var(--font-heading)' }}>
+                    {salaryCalc.netFormatted}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

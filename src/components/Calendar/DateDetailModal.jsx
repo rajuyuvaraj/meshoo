@@ -11,7 +11,7 @@ import {
   Download,
   FileSpreadsheet
 } from 'lucide-react';
-import { formatINR, formatDate } from '../../utils/formatters';
+import { formatINR, formatDate, calculateRiderSalary } from '../../utils/formatters';
 import { exportSingleDateExcel } from '../../utils/excelExport';
 
 export default function DateDetailModal({ 
@@ -227,6 +227,7 @@ export default function DateDetailModal({
                       const variance = Number(entry.cash_variance) || 0;
                       const auditStatus = entry.audit_status || 'Balanced';
                       const isSalaryPaid = Boolean(entry.salary_paid);
+                      const sal = calculateRiderSalary(entry.total_delivered, 18, 1);
 
                       return (
                         <tr key={entry.id}>
@@ -260,6 +261,9 @@ export default function DateDetailModal({
                             </span>
                           </td>
                           <td style={{ textAlign: 'center' }}>
+                            <div style={{ fontWeight: 800, fontSize: '0.84rem', color: '#047857', marginBottom: '3px' }}>
+                              {sal.netFormatted}
+                            </div>
                             <button
                               type="button"
                               onClick={() => onToggleSalary ? onToggleSalary(entry) : onEditEntry({ ...entry, salary_paid: !isSalaryPaid })}
@@ -267,16 +271,16 @@ export default function DateDetailModal({
                                 border: `1px solid ${isSalaryPaid ? '#a7f3d0' : '#fde68a'}`,
                                 background: isSalaryPaid ? '#ecfdf5' : '#fffbeb',
                                 color: isSalaryPaid ? '#047857' : '#b45309',
-                                padding: '4px 8px',
+                                padding: '3px 8px',
                                 borderRadius: '6px',
-                                fontSize: '0.72rem',
+                                fontSize: '0.7rem',
                                 fontWeight: 700,
                                 cursor: 'pointer',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '3px'
                               }}
-                              title="Click to toggle salary status"
+                              title={`Payout Formula: ${sal.formulaStr}`}
                             >
                               {isSalaryPaid ? '✓ Paid' : '⏳ Pending'}
                             </button>
