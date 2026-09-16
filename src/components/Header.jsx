@@ -1,7 +1,7 @@
 import React from 'react';
-import { Truck, LogOut, Calendar as CalendarIcon, ShieldCheck } from 'lucide-react';
+import { Truck, LogOut, Calendar as CalendarIcon, ShieldCheck, Download } from 'lucide-react';
 
-export default function Header({ user, onLogout, activeTab, onTabChange }) {
+export default function Header({ user, onLogout, activeTab, onTabChange, onExportAll }) {
   const managerDisplayName = user?.name || user?.username || 'Vaibhav';
   const managerInitials = managerDisplayName.substring(0, 2).toUpperCase();
 
@@ -28,14 +28,14 @@ export default function Header({ user, onLogout, activeTab, onTabChange }) {
         <nav className="desktop-nav">
           <button
             className={`desktop-nav-item ${activeTab === 'calendar' ? 'active' : ''}`}
-            onClick={() => onTabChange('calendar')}
+            onClick={() => onTabChange && onTabChange('calendar')}
           >
             <CalendarIcon size={16} />
             <span>Calendar Reconciliation</span>
           </button>
           <button
             className={`desktop-nav-item ${activeTab === 'remittance' ? 'active' : ''}`}
-            onClick={() => onTabChange('remittance')}
+            onClick={() => onTabChange && onTabChange('remittance')}
           >
             <ShieldCheck size={16} />
             <span>Bank Remittance</span>
@@ -44,6 +44,32 @@ export default function Header({ user, onLogout, activeTab, onTabChange }) {
 
         {/* Right Section: Manager Profile & Sign Out */}
         <div className="header-actions">
+          {onExportAll && (
+            <button
+              type="button"
+              className="btn btn-sm"
+              style={{
+                background: '#059669',
+                color: '#ffffff',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: '0.78rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+              }}
+              onClick={onExportAll}
+              title="Download Excel Sheet for All Dates"
+            >
+              <Download size={14} />
+              <span>Export All (Excel)</span>
+            </button>
+          )}
+
           <div className="manager-badge" title={`Signed in as ${managerDisplayName}`}>
             <div className="avatar-initials">{managerInitials}</div>
             <span style={{ fontWeight: 600 }}>{managerDisplayName}</span>

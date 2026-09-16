@@ -5,11 +5,14 @@ import {
   Edit3, 
   Trash2, 
   Calendar as CalendarIcon, 
-  Building2,
+  Building2, 
   User, 
-  Lock
+  Lock,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
 import { formatINR, formatDate } from '../../utils/formatters';
+import { exportSingleDateExcel } from '../../utils/excelExport';
 
 export default function DateDetailModal({ 
   dateStr, 
@@ -93,9 +96,31 @@ export default function DateDetailModal({
               </p>
             </div>
           </div>
-          <button className="btn-icon" onClick={onClose} title="Close">
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => exportSingleDateExcel(dateStr, entries, deposits, dayStats)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: '#ecfdf5',
+                borderColor: '#a7f3d0',
+                color: '#065f46',
+                fontWeight: 700,
+                fontSize: '0.78rem',
+                padding: '6px 12px'
+              }}
+              title="Download this date's report as Excel (.xlsx)"
+            >
+              <Download size={14} color="#059669" />
+              <span>Download Excel</span>
+            </button>
+            <button className="btn-icon" onClick={onClose} title="Close">
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Modal Body */}
@@ -382,18 +407,38 @@ export default function DateDetailModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="modal-footer">
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
-            Close
-          </button>
+        <div className="modal-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <button
             type="button"
-            className="btn btn-primary"
-            onClick={() => onAddAgentEntry(dateStr)}
+            className="btn btn-secondary"
+            onClick={() => exportSingleDateExcel(dateStr, entries, deposits, dayStats)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: '#ecfdf5',
+              borderColor: '#a7f3d0',
+              color: '#065f46',
+              fontWeight: 700
+            }}
           >
-            <Plus size={16} />
-            <span>+ Add Another Rider</span>
+            <Download size={15} color="#059669" />
+            <span>Download Day Excel (.xlsx)</span>
           </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>
+              Close
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => onAddAgentEntry(dateStr)}
+            >
+              <Plus size={16} />
+              <span>+ Add Another Rider</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

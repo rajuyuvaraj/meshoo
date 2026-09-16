@@ -7,6 +7,7 @@ import EntryWizardModal from './components/EntryWizard/EntryWizardModal';
 import RecordDepositModal from './components/Remittance/RecordDepositModal';
 import BulkUploadModal from './components/Common/BulkUploadModal';
 import { dataService } from './services/dataService';
+import { exportAllDatesExcel } from './utils/excelExport';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function App() {
@@ -206,6 +207,7 @@ export default function App() {
       <Header
         user={user}
         onLogout={handleLogout}
+        onExportAll={() => exportAllDatesExcel(dailyEntries, remittanceEntries)}
       />
 
       {/* Main Unified Hub Dashboard */}

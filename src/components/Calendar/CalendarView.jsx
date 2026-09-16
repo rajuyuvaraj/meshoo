@@ -15,9 +15,11 @@ import {
   Calendar as CalendarIcon,
   Trash2,
   Edit3,
-  User
+  User,
+  Download
 } from 'lucide-react';
 import { formatINR, formatDate } from '../../utils/formatters';
+import { exportAllDatesExcel } from '../../utils/excelExport';
 
 export default function CalendarView({ 
   dailyEntries = [], 
@@ -289,6 +291,25 @@ export default function CalendarView({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{
+              background: '#ecfdf5',
+              borderColor: '#a7f3d0',
+              color: '#065f46',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            onClick={() => exportAllDatesExcel(dailyEntries, remittanceEntries)}
+            title="Download full multi-sheet Excel workbook for all dates"
+          >
+            <Download size={16} color="#059669" />
+            <span>Export All (Excel)</span>
+          </button>
+
           <button
             className="btn btn-secondary"
             style={{ background: '#f0fdfa', borderColor: '#99f6e4', color: '#0f766e' }}
