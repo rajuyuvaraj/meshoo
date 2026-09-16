@@ -157,17 +157,19 @@ export default function App() {
   };
 
   // Bank Deposit Modal actions
-  const handleOpenDepositModal = (date, suggestedAmount = 0, depositToEdit = null) => {
+  const handleOpenDepositModal = (tabOrDate = 'deposits', suggestedAmount = 0, depositToEdit = null) => {
+    const isTab = tabOrDate === 'deposits' || tabOrDate === 'collections';
     setDepositModalState({
       isOpen: true,
-      date: date || new Date().toISOString().split('T')[0],
+      tab: isTab ? tabOrDate : 'deposits',
+      date: !isTab && tabOrDate ? tabOrDate : new Date().toISOString().split('T')[0],
       depositToEdit,
       suggestedAmount: Math.max(0, suggestedAmount),
     });
   };
 
   const handleCloseDepositModal = () => {
-    setDepositModalState({ isOpen: false, date: null, depositToEdit: null, suggestedAmount: 0 });
+    setDepositModalState({ isOpen: false, tab: 'deposits', date: null, depositToEdit: null, suggestedAmount: 0 });
   };
 
   const handleSaveDeposit = async (depositData) => {
@@ -272,6 +274,7 @@ export default function App() {
       {/* Bank Deposit Modal */}
       {depositModalState.isOpen && (
         <RecordDepositModal
+          initialTab={depositModalState.tab || 'deposits'}
           initialDate={depositModalState.date}
           depositToEdit={depositModalState.depositToEdit}
           suggestedAmount={depositModalState.suggestedAmount}
@@ -279,6 +282,7 @@ export default function App() {
           remittanceEntries={remittanceEntries}
           onClose={handleCloseDepositModal}
           onSave={handleSaveDeposit}
+          onDeleteDeposit={handleDeleteDeposit}
         />
       )}
 

@@ -231,8 +231,8 @@ export default function CalendarView({
         <div 
           className="kpi-card cash" 
           style={{ cursor: 'pointer' }}
-          onClick={() => onOpenDepositModal(currentDate || new Date().toISOString().split('T')[0], monthAggregates.cashInVault)}
-          title="Click to view full In-Hand collections & record deposit"
+          onClick={() => onOpenDepositModal('collections', monthAggregates.totalSettled)}
+          title="Click to view all In-Hand collection transactions"
         >
           <div className="kpi-label">
             <span>Total In-Hand Collections</span>
@@ -245,8 +245,8 @@ export default function CalendarView({
         <div 
           className="kpi-card deposit" 
           style={{ cursor: 'pointer' }}
-          onClick={() => onOpenDepositModal(currentDate || new Date().toISOString().split('T')[0], monthAggregates.cashInVault)}
-          title="Click to view bank deposit breakdown"
+          onClick={() => onOpenDepositModal('deposits', monthAggregates.cashInVault)}
+          title="Click to view all bank deposit transactions & record deposit"
         >
           <div className="kpi-label">
             <span>Bank Deposited</span>
@@ -261,7 +261,7 @@ export default function CalendarView({
         <div 
           className={`kpi-card ${monthAggregates.cashInVault > 0 ? 'cash' : 'balanced'}`} 
           style={{ cursor: 'pointer' }}
-          onClick={() => onOpenDepositModal(currentDate || new Date().toISOString().split('T')[0], monthAggregates.cashInVault)}
+          onClick={() => onOpenDepositModal('deposits', monthAggregates.cashInVault)}
           title="Click to record deposit for pending vault cash"
         >
           <div className="kpi-label">
