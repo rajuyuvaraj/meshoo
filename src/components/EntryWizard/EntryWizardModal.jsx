@@ -9,7 +9,10 @@ import {
   AlertCircle,
   Hash,
   Sparkles,
-  Smartphone
+  Smartphone,
+  Wallet,
+  CheckCircle2,
+  Clock
 } from 'lucide-react';
 import { formatINR, getAuditStatus } from '../../utils/formatters';
 
@@ -31,6 +34,7 @@ export default function EntryWizardModal({
     reported_cod_cash: entryToEdit?.reported_cod_cash ?? '',
     online_received: entryToEdit?.online_received ?? '',
     cash_collected_fe: entryToEdit?.actual_cash_tally ?? entryToEdit?.actual_cash_collected ?? entryToEdit?.cash_collected_fe ?? '',
+    salary_paid: Boolean(entryToEdit?.salary_paid),
   });
 
   const [saving, setSaving] = useState(false);
@@ -100,6 +104,7 @@ export default function EntryWizardModal({
         total_settled: totalSettled,
         cash_variance: cashVariance,
         audit_status: auditStatus,
+        salary_paid: Boolean(formData.salary_paid),
       });
       onClose();
     } catch (err) {
@@ -359,6 +364,90 @@ export default function EntryWizardModal({
                     {formatINR(cashVariance)}
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* 5. RIDER SALARY PAYOUT STATUS */}
+            <div style={{
+              background: '#f8fafc',
+              borderRadius: '12px',
+              border: '1px solid #e2e8f0',
+              padding: '14px 16px',
+              marginTop: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '8px',
+                  background: formData.salary_paid ? '#ecfdf5' : '#fffbeb',
+                  color: formData.salary_paid ? '#059669' : '#d97706',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: `1px solid ${formData.salary_paid ? '#a7f3d0' : '#fde68a'}`
+                }}>
+                  <Wallet size={18} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#1e293b' }}>
+                    5. Rider Salary Payout
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                    Mark whether this rider's shift salary/commission is paid
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, salary_paid: false }))}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    border: !formData.salary_paid ? '2px solid #f59e0b' : '1px solid #cbd5e1',
+                    background: !formData.salary_paid ? '#fef3c7' : '#ffffff',
+                    color: !formData.salary_paid ? '#92400e' : '#64748b',
+                    fontWeight: 700,
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <Clock size={15} />
+                  <span>Unpaid / Pending</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, salary_paid: true }))}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    border: formData.salary_paid ? '2px solid #10b981' : '1px solid #cbd5e1',
+                    background: formData.salary_paid ? '#d1fae5' : '#ffffff',
+                    color: formData.salary_paid ? '#065f46' : '#64748b',
+                    fontWeight: 700,
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <CheckCircle2 size={15} />
+                  <span>✓ Salary Paid</span>
+                </button>
               </div>
             </div>
           </div>

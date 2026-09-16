@@ -131,6 +131,16 @@ export default function App() {
     }
   };
 
+  const handleToggleSalary = async (entry) => {
+    const updatedStatus = !entry.salary_paid;
+    await dataService.saveDailyEntry({
+      ...entry,
+      salary_paid: updatedStatus,
+    });
+    await loadData();
+    addToast(`${entry.agent_name} salary marked as ${updatedStatus ? 'Paid' : 'Unpaid'}`);
+  };
+
   // Bank Deposit Modal actions
   const handleOpenDepositModal = (date, suggestedAmount = 0, depositToEdit = null) => {
     setDepositModalState({
@@ -228,6 +238,7 @@ export default function App() {
           onDeleteEntry={handleDeleteDailyEntry}
           onOpenDepositModal={(dateStr, vaultAmt) => handleOpenDepositModal(dateStr, vaultAmt)}
           onDeleteDeposit={handleDeleteDeposit}
+          onToggleSalary={handleToggleSalary}
         />
       )}
 

@@ -20,7 +20,8 @@ export default function DateDetailModal({
   onEditEntry, 
   onDeleteEntry,
   onOpenDepositModal,
-  onDeleteDeposit
+  onDeleteDeposit,
+  onToggleSalary
 }) {
   // Aggregate stats for this specific date
   const dayStats = useMemo(() => {
@@ -69,7 +70,7 @@ export default function DateDetailModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card wide" onClick={e => e.stopPropagation()} style={{ maxWidth: '840px' }}>
+      <div className="modal-card wide" onClick={e => e.stopPropagation()} style={{ maxWidth: '880px' }}>
         {/* Modal Header */}
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -182,7 +183,7 @@ export default function DateDetailModal({
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th style={{ minWidth: '130px' }}>Agent Name & ID</th>
+                      <th style={{ minWidth: '120px' }}>Agent Name & ID</th>
                       <th className="th-group-delivery" style={{ textAlign: 'center' }}>Delivered</th>
                       <th className="th-group-reported" style={{ textAlign: 'right' }}>COD App Target</th>
                       <th className="th-group-reported" style={{ textAlign: 'right' }}>Online UPI</th>
@@ -190,6 +191,7 @@ export default function DateDetailModal({
                       <th style={{ textAlign: 'right' }}>Total Settled</th>
                       <th style={{ textAlign: 'right' }}>Variance</th>
                       <th style={{ textAlign: 'center' }}>Audit Status</th>
+                      <th style={{ textAlign: 'center' }}>Salary</th>
                       <th style={{ textAlign: 'center', minWidth: '70px' }}>Actions</th>
                     </tr>
                   </thead>
@@ -199,6 +201,7 @@ export default function DateDetailModal({
                       const loginId = entry.login_account_id || '';
                       const variance = Number(entry.cash_variance) || 0;
                       const auditStatus = entry.audit_status || 'Balanced';
+                      const isSalaryPaid = Boolean(entry.salary_paid);
 
                       return (
                         <tr key={entry.id}>
@@ -230,6 +233,28 @@ export default function DateDetailModal({
                             <span className={`badge badge-${auditStatus.toLowerCase()}`}>
                               {auditStatus}
                             </span>
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => onToggleSalary ? onToggleSalary(entry) : onEditEntry({ ...entry, salary_paid: !isSalaryPaid })}
+                              style={{
+                                border: `1px solid ${isSalaryPaid ? '#a7f3d0' : '#fde68a'}`,
+                                background: isSalaryPaid ? '#ecfdf5' : '#fffbeb',
+                                color: isSalaryPaid ? '#047857' : '#b45309',
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                              }}
+                              title="Click to toggle salary status"
+                            >
+                              {isSalaryPaid ? '✓ Paid' : '⏳ Pending'}
+                            </button>
                           </td>
                           <td style={{ textAlign: 'center' }}>
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>

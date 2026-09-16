@@ -28,6 +28,7 @@ create table if not exists daily_entries (
   total_settled numeric(12,2) default 0.00,
   cash_variance numeric(12,2) default 0.00,
   audit_status text default 'Balanced' check (audit_status in ('Balanced', 'Shortage', 'Surplus')),
+  salary_paid boolean default false,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

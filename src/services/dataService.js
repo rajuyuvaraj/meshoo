@@ -267,29 +267,45 @@ export const dataService = {
       total_settled: totalSettled,
       cash_variance: cashVariance,
       audit_status: auditStatus,
+      salary_paid: Boolean(entry.salary_paid),
       updated_at: new Date().toISOString(),
     };
 
     await this.recordKnownAgent(payload.agent_name, payload.login_account_id);
 
     if (isSupabaseConfigured && supabase) {
-      if (entry.id && !entry.id.startsWith('de-')) {
-        const { data, error } = await supabase
-          .from('daily_entries')
-          .update(payload)
-          .eq('id', entry.id)
-          .select()
-          .single();
-        if (error) throw error;
-        return data;
-      } else {
-        const { data, error } = await supabase
-          .from('daily_entries')
-          .insert([payload])
-          .select()
-          .single();
-        if (error) throw error;
-        return data;
+      const executeSupabase = async (dataPayload) => {
+        if (entry.id && !entry.id.startsWith('de-')) {
+          const { data, error } = await supabase
+            .from('daily_entries')
+            .update(dataPayload)
+            .eq('id', entry.id)
+            .select()
+            .single();
+          if (error) throw error;
+          return data;
+        } else {
+          const { data, error } = await supabase
+            .from('daily_entries')
+            .insert([dataPayload])
+            .select()
+            .single();
+          if (error) throw error;
+          return data;
+        }
+      };
+
+      try {
+        const res = await executeSupabase(payload);
+        return { ...res, salary_paid: payload.salary_paid };
+      } catch (err) {
+        // Fallback without salary_paid if column doesn't exist on remote table
+        if (err?.message?.includes('salary_paid') || err?.code === '42703' || err?.message?.includes('column')) {
+          const { salary_paid, ...fallbackPayload } = payload;
+          const res = await executeSupabase(fallbackPayload);
+          return { ...res, salary_paid: payload.salary_paid };
+        }
+        throw err;
       }
     }
 
@@ -341,7 +357,7 @@ export const dataService = {
       const onlineReceived = Number(item.online_received) || 0;
       const reportedCodCash = Number(item.reported_cod_cash) || 0;
       const totalSettled = onlineReceived + actualCashTally;
-      const cashVariance = actualCashTally - reportedCodCash;
+      const cashVariance = totalSettled - reportedCodCash;
       const auditStatus = getAuditStatus(cashVariance);
 
       const newEntry = {
@@ -365,6 +381,7 @@ export const dataService = {
         total_settled: totalSettled,
         cash_variance: cashVariance,
         audit_status: auditStatus,
+        salary_paid: Boolean(item.salary_paid),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
