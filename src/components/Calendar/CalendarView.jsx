@@ -637,11 +637,7 @@ export default function CalendarView({
       </div>
 
       {/* Manager Cash & Denomination Tally Pad (Always accessible right below dropdown) */}
-      <DenominationCalculator 
-        todayTarget={todaySettled || todayCash}
-        monthTarget={monthAggregates.totalSettled}
-        vaultBalance={monthAggregates.cashInVault}
-      />
+      <DenominationCalculator />
 
       {/* Floating Action Button */}
       <button
