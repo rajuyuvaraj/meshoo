@@ -29,7 +29,7 @@ export default function LoginScreen({ onLoginSuccess }) {
           <div className="login-icon">
             <Truck size={28} />
           </div>
-          <h2 className="login-title">Varanasi Hub Portal</h2>
+          <h2 className="login-title">UT8 HUB Portal</h2>
           <p className="login-subtitle">Fleet Operations & Bank Remittance Tracker</p>
         </div>
 

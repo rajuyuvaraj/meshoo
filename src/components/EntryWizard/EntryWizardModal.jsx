@@ -29,7 +29,7 @@ export default function EntryWizardModal({
     agent_name: entryToEdit?.agent_name || '',
     login_account_id: entryToEdit?.login_account_id || '',
     entry_date: entryToEdit?.entry_date || initialDate || new Date().toISOString().split('T')[0],
-    hub_location: entryToEdit?.hub_location || 'Varanasi Hub',
+    hub_location: entryToEdit?.hub_location || 'UT8 HUB',
     total_delivered: entryToEdit?.total_delivered ?? '',
     reported_cod_cash: entryToEdit?.reported_cod_cash ?? '',
     online_received: entryToEdit?.online_received ?? '',

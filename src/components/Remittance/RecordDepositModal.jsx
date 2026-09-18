@@ -178,7 +178,7 @@ export default function RecordDepositModal({
         deposit_branch: 'Varanasi Main Branch (Cantt)',
         cash_challan_no: `SBI-VNS-${depositDate.replace(/-/g, '')}`,
         bank_utr_ref_no: '',
-        hub_location: 'Varanasi Hub',
+        hub_location: 'UT8 HUB',
         receipt_image: receiptFile?.dataUrl || null,
         receipt_filename: receiptFile?.filename || '',
         area_manager_name: 'Rajesh Kumar (AM)',

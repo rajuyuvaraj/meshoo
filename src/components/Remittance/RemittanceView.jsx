@@ -119,7 +119,7 @@ export default function RemittanceView({
     try {
       await onSaveRemittance({
         entry_date: selectedDate,
-        hub_location: 'Varanasi Hub',
+        hub_location: 'UT8 HUB',
         ...formState,
         cash_deposited: cashDeposited,
         online_remitted: onlineRemitted,
@@ -153,7 +153,7 @@ export default function RemittanceView({
             Hub Bank Remittance & AM Reconciliation
           </h2>
           <p style={{ fontSize: '0.8rem', color: '#64748b' }}>
-            Consolidated daily shift deposits and online area manager settlement for Varanasi Hub
+            Consolidated daily shift deposits and online area manager settlement for UT8 HUB
           </p>
         </div>
 
@@ -248,7 +248,7 @@ export default function RemittanceView({
               Daily Remittance Record — {formatDate(selectedDate, 'long')}
             </h3>
             <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
-              Hub Location: Varanasi Hub (VNS-01)
+              Hub Location: UT8 HUB (UT8-01)
             </span>
           </div>
 

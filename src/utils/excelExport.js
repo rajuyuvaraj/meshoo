@@ -15,7 +15,7 @@ export function exportSingleDateExcel(dateStr, entries = [], deposits = [], dayS
       'Shift Date': entry.entry_date,
       'Rider Name': entry.agent_name || 'Rider',
       'Login Account ID': entry.login_account_id || '',
-      'Hub Location': entry.hub_location || 'Varanasi Hub',
+      'Hub Location': entry.hub_location || 'UT8 HUB',
       'Delivered Parcels': Number(entry.total_delivered) || 0,
       'COD App Target (₹)': Number(entry.reported_cod_cash) || 0,
       'Online UPI Received (₹)': Number(entry.online_received) || 0,
@@ -54,7 +54,7 @@ export function exportSingleDateExcel(dateStr, entries = [], deposits = [], dayS
 
   const summaryRows = [
     { 'Metric': 'Date', 'Value': dateStr },
-    { 'Metric': 'Hub Name', 'Value': 'Varanasi Hub (VNS-01)' },
+    { 'Metric': 'Hub Name', 'Value': 'UT8 HUB (UT8-01)' },
     { 'Metric': 'Riders Submitted', 'Value': dayStats.agentCount ?? entries.length },
     { 'Metric': 'Total Delivered Parcels', 'Value': dayStats.totalDelivered ?? 0 },
     { 'Metric': 'Reported COD App Target (₹)', 'Value': dayStats.reportedCodCash ?? 0 },
@@ -71,7 +71,7 @@ export function exportSingleDateExcel(dateStr, entries = [], deposits = [], dayS
   XLSX.utils.book_append_sheet(wb, wsSummary, 'Day Summary');
 
   // Write and download
-  XLSX.writeFile(wb, `Varanasi_Hub_Report_${dateStr}.xlsx`);
+  XLSX.writeFile(wb, `UT8_HUB_Report_${dateStr}.xlsx`);
 }
 
 /**
@@ -89,7 +89,7 @@ export function exportAllDatesExcel(dailyEntries = [], remittanceEntries = []) {
       'Shift Date': entry.entry_date,
       'Rider Name': entry.agent_name || 'Rider',
       'Login Account ID': entry.login_account_id || '',
-      'Hub Location': entry.hub_location || 'Varanasi Hub',
+      'Hub Location': entry.hub_location || 'UT8 HUB',
       'Delivered Parcels': Number(entry.total_delivered) || 0,
       'COD App Target (₹)': Number(entry.reported_cod_cash) || 0,
       'Online UPI Received (₹)': Number(entry.online_received) || 0,
@@ -189,5 +189,5 @@ export function exportAllDatesExcel(dailyEntries = [], remittanceEntries = []) {
   XLSX.utils.book_append_sheet(wb, wsDaily, 'Daily Aggregates');
 
   const todayStr = new Date().toISOString().split('T')[0];
-  XLSX.writeFile(wb, `Varanasi_Hub_Complete_Ledger_${todayStr}.xlsx`);
+  XLSX.writeFile(wb, `UT8_HUB_Complete_Ledger_${todayStr}.xlsx`);
 }

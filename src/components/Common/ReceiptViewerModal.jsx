@@ -352,7 +352,7 @@ export default function ReceiptViewerModal({ deposit, onClose }) {
               {deposit.deposit_bank || 'State Bank of India'}
             </div>
             <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
-              {deposit.hub_location || 'Varanasi Hub'}
+              {deposit.hub_location || 'UT8 HUB'}
             </div>
           </div>
 

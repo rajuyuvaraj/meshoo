@@ -11,6 +11,33 @@ import { exportAllDatesExcel } from './utils/excelExport';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function App() {
+  // Theme state ('light' | 'dark')
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem('app_theme') || 'light';
+    } catch {
+      return 'light';
+    }
+  });
+
+  // Sync theme with DOM and localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('app_theme', theme);
+    } catch (e) {}
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  }, [theme]);
+
+  const handleToggleTheme = () => {
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
   // Authentication state
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -101,7 +128,7 @@ export default function App() {
   const handleLogout = async () => {
     await dataService.logout();
     setUser(null);
-    addToast('Signed out of Varanasi Hub');
+    addToast('Signed out of UT8 HUB');
   };
 
   // Rider Shift Entry Modal actions
@@ -221,7 +248,7 @@ export default function App() {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a', color: '#ffffff' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ width: 40, height: 40, border: '3px solid #6366f1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }}></div>
-          <p style={{ fontSize: '0.9rem', color: '#94a3b8' }}>Loading Varanasi Hub Console...</p>
+          <p style={{ fontSize: '0.9rem', color: '#94a3b8' }}>Loading UT8 HUB Console...</p>
         </div>
         <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
       </div>
@@ -242,9 +269,11 @@ export default function App() {
 
   return (
     <div className="app-container" style={{ paddingBottom: '24px' }}>
-      {/* Dark Navy Executive Header */}
+      {/* Executive Header with Dark Mode Toggle */}
       <Header
         user={user}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
         onLogout={handleLogout}
         onExportAll={() => exportAllDatesExcel(dailyEntries, remittanceEntries)}
       />

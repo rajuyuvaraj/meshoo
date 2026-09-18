@@ -101,7 +101,7 @@ export default function AgentsView({ agents = [], onSaveAgent, onToggleActive })
       }}>
         <div>
           <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
-            Varanasi Hub Delivery Agents (Riders)
+            UT8 HUB Delivery Agents (Riders)
           </h2>
           <p style={{ fontSize: '0.8rem', color: '#64748b' }}>
             Manage delivery fleet roster. Inactive riders remain preserved in historical entries.
@@ -209,7 +209,7 @@ export default function AgentsView({ agents = [], onSaveAgent, onToggleActive })
                     {agent.name}
                   </div>
                   <div className="agent-id-tag">
-                    {agent.login_account_id} • Varanasi Hub
+                    {agent.login_account_id} • UT8 HUB
                   </div>
                 </div>
               </div>

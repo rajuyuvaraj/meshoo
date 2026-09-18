@@ -7,7 +7,22 @@
     <meta name="theme-color" content="#0f172a" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>Varanasi Hub — Fleet Ops & Bank Remittance Tracker</title>
+    <title>UT8 HUB — Fleet Ops & Bank Remittance Tracker</title>
+    <script>
+      // Immediate theme initialization to prevent flash
+      (function() {
+        try {
+          const theme = localStorage.getItem('app_theme') || 'light';
+          if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+            document.documentElement.setAttribute('data-theme', 'dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.setAttribute('data-theme', 'light');
+          }
+        } catch (e) {}
+      })();
+    </script>
     <!-- Modern Typography: Inter & Outfit -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

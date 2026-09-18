@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Varanasi Hub Delivery Operations & Remittance Tracker - Design System
+   UT8 HUB Delivery Operations & Remittance Tracker - Design System
    ========================================================================== */
 
 :root {
@@ -7,6 +7,10 @@
   --bg-app: #f8fafc;
   --bg-card: #ffffff;
   --bg-card-subtle: #f1f5f9;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --text-heading: #0f172a;
+  --border-color: #e2e8f0;
   --navy-header: #0f172a;
   --navy-header-light: #1e293b;
   --navy-accent: #334155;
@@ -1435,3 +1439,406 @@ a {
   from { transform: translateX(20px); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
 }
+
+@media (max-width: 640px) {
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
+   Dark Mode Design System (Executive Obsidian & High-Contrast Slate)
+   ========================================================================== */
+
+html.dark {
+  color-scheme: dark;
+  --bg-app: #0b0f19;
+  --bg-card: #151e2e;
+  --bg-card-subtle: #1e293b;
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-heading: #f8fafc;
+  --border-color: #1e293b;
+  --navy-header: #070b14;
+  --navy-header-light: #0f172a;
+  --navy-accent: #1e293b;
+
+  /* Status Colors Dark Mode Overrides */
+  --color-balanced-bg: rgba(6, 78, 59, 0.25);
+  --color-balanced-border: rgba(16, 185, 129, 0.35);
+  --color-balanced-text: #6ee7b7;
+
+  --color-shortage-bg: rgba(127, 29, 29, 0.25);
+  --color-shortage-border: rgba(239, 68, 68, 0.35);
+  --color-shortage-text: #fca5a5;
+
+  --color-surplus-bg: rgba(120, 53, 15, 0.25);
+  --color-surplus-border: rgba(245, 158, 11, 0.35);
+  --color-surplus-text: #fde68a;
+
+  --group-delivery-bg: #0c4a6e;
+  --group-delivery-text: #7dd3fc;
+  --group-delivery-border: #0284c7;
+
+  --group-reported-bg: #134e4a;
+  --group-reported-text: #5eead4;
+  --group-reported-border: #0d9488;
+
+  --group-tally-bg: #3b0764;
+  --group-tally-text: #d8b4fe;
+  --group-tally-border: #7c3aed;
+}
+
+/* Base Body & Container in Dark Mode */
+html.dark body {
+  background-color: #0b0f19;
+  color: #f1f5f9;
+}
+
+html.dark .app-container {
+  background-color: #0b0f19;
+}
+
+/* Header Adjustments */
+html.dark .hub-header {
+  background: linear-gradient(135deg, #070b14 0%, #0f172a 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.theme-toggle-btn:hover {
+  transform: rotate(15deg) scale(1.05);
+}
+
+/* KPI Metric Cards in Dark Mode */
+html.dark .kpi-card {
+  background: #151e2e;
+  border-color: #1e293b;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+html.dark .kpi-card:hover {
+  border-color: #334155;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+html.dark .kpi-label {
+  color: #94a3b8;
+}
+
+html.dark .kpi-value {
+  color: #f8fafc;
+}
+
+html.dark .kpi-subtext {
+  color: #64748b;
+}
+
+/* Calendar Panel in Dark Mode */
+html.dark .calendar-panel {
+  background: #151e2e;
+  border-color: #1e293b;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+html.dark .month-title {
+  color: #f8fafc;
+}
+
+html.dark .nav-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+html.dark .nav-btn:hover {
+  background: #334155;
+  border-color: #475569;
+  color: #ffffff;
+}
+
+html.dark .btn-today {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+html.dark .btn-today:hover {
+  background: #334155;
+}
+
+html.dark .legend-bar {
+  color: #94a3b8;
+}
+
+html.dark .calendar-weekdays {
+  color: #94a3b8;
+}
+
+html.dark .date-cell {
+  background-color: #151e2e;
+  border-color: #1e293b;
+}
+
+html.dark .date-cell:hover {
+  background-color: #1a2438;
+  border-color: #475569;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+
+html.dark .date-cell.outside-month {
+  background-color: rgba(11, 15, 25, 0.6);
+  opacity: 0.25;
+}
+
+html.dark .date-cell.is-today {
+  border: 2px solid #818cf8;
+  box-shadow: 0 0 12px rgba(129, 140, 248, 0.25);
+}
+
+html.dark .date-num {
+  color: #f8fafc;
+}
+
+html.dark .agent-count-badge {
+  background: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+}
+
+html.dark .date-settled-val {
+  color: #f8fafc;
+}
+
+html.dark .date-cell.status-empty {
+  background-color: #151e2e;
+  border-color: #1e293b;
+}
+
+html.dark .date-cell.status-balanced {
+  background-color: rgba(6, 78, 59, 0.22);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+html.dark .date-cell.status-shortage {
+  background-color: rgba(127, 29, 29, 0.22);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+html.dark .date-cell.status-surplus {
+  background-color: rgba(120, 53, 15, 0.22);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+/* Modals & Dialogs in Dark Mode */
+html.dark .modal-card {
+  background-color: #151e2e;
+  border: 1px solid #334155;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  color: #f1f5f9;
+}
+
+html.dark .modal-header {
+  background-color: #0f172a;
+  border-bottom-color: #1e293b;
+}
+
+html.dark .modal-footer {
+  background-color: #0f172a;
+  border-top-color: #1e293b;
+}
+
+html.dark .modal-title {
+  color: #f8fafc;
+}
+
+/* Form controls in Dark Mode */
+html.dark .form-label {
+  color: #cbd5e1;
+}
+
+html.dark .form-input,
+html.dark .form-select,
+html.dark .counter-input {
+  background-color: #0b0f19;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+html.dark .form-input:focus,
+html.dark .form-select:focus,
+html.dark .counter-input:focus {
+  border-color: #818cf8;
+  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2);
+}
+
+html.dark .form-input:disabled {
+  background-color: #1e293b;
+  color: #64748b;
+  border-color: #1e293b;
+}
+
+/* Buttons in Dark Mode */
+html.dark .btn-secondary {
+  background-color: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+html.dark .btn-secondary:hover {
+  background-color: #334155;
+  color: #ffffff;
+}
+
+html.dark .btn-icon {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+}
+
+html.dark .btn-icon:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+/* Tables in Dark Mode */
+html.dark .table-container {
+  background: #151e2e;
+  border-color: #1e293b;
+}
+
+html.dark .data-table th {
+  background-color: #0f172a;
+  border-bottom-color: #1e293b;
+  color: #94a3b8;
+}
+
+html.dark .data-table td {
+  border-bottom-color: #1e293b;
+  color: #f1f5f9;
+}
+
+html.dark .data-table tr:hover td {
+  background-color: #1e293b;
+}
+
+/* Step Wizard in Dark Mode */
+html.dark .step-circle {
+  background: #1e293b;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+html.dark .step-name {
+  color: #94a3b8;
+}
+
+html.dark .wizard-progress-track {
+  background: #1e293b;
+}
+
+/* Denomination Tally & Counters in Dark Mode */
+html.dark .tally-container {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+
+html.dark .tally-row {
+  border-bottom-color: #1e293b;
+}
+
+html.dark .denom-tag {
+  background-color: #1e293b;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+html.dark .counter-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+html.dark .counter-btn:hover {
+  background-color: #334155;
+}
+
+html.dark .denom-subtotal {
+  color: #f8fafc;
+}
+
+/* Review Summary Cards & Agents List in Dark Mode */
+html.dark .review-summary-card {
+  background: #151e2e;
+  border-color: #1e293b;
+}
+
+html.dark .review-row {
+  border-bottom-color: #1e293b;
+}
+
+html.dark .review-row.highlight {
+  background-color: #0f172a;
+}
+
+html.dark .review-label {
+  color: #94a3b8;
+}
+
+html.dark .review-val {
+  color: #f8fafc;
+}
+
+html.dark .agent-card {
+  background: #151e2e;
+  border-color: #1e293b;
+}
+
+html.dark .agent-card:hover {
+  border-color: #334155;
+}
+
+html.dark .agent-name {
+  color: #f8fafc !important;
+}
+
+html.dark .agent-avatar {
+  background: #1e293b;
+  color: #818cf8;
+}
+
+/* Custom dark overrides for inline background cards (Activity Feed, Denomination Pad, Details) */
+html.dark [style*="background: #ffffff"],
+html.dark [style*="background:#ffffff"],
+html.dark [style*="background: rgb(255, 255, 255)"],
+html.dark [style*="background-color: #ffffff"],
+html.dark [style*="background-color:#ffffff"],
+html.dark [style*="background-color: rgb(255, 255, 255)"] {
+  background-color: #151e2e !important;
+}
+
+html.dark [style*="background: #f8fafc"],
+html.dark [style*="background:#f8fafc"],
+html.dark [style*="background: #f1f5f9"],
+html.dark [style*="background:#f1f5f9"] {
+  background-color: #0f172a !important;
+}
+
+html.dark [style*="color: #0f172a"],
+html.dark [style*="color:#0f172a"],
+html.dark [style*="color: #1e293b"],
+html.dark [style*="color:#1e293b"],
+html.dark [style*="color: #334155"],
+html.dark [style*="color:#334155"] {
+  color: #f8fafc !important;
+}
+
+html.dark [style*="border: 1.5px solid #e2e8f0"],
+html.dark [style*="border: 1px solid #e2e8f0"],
+html.dark [style*="border: 1px solid #cbd5e1"],
+html.dark [style*="border: 1.5px solid #cbd5e1"],
+html.dark [style*="border-bottom: 1px solid #e2e8f0"],
+html.dark [style*="border-top: 1px solid #e2e8f0"],
+html.dark [style*="border-bottom: 1px solid #f1f5f9"],
+html.dark [style*="border-top: 1px solid #f1f5f9"] {
+  border-color: #1e293b !important;
+}
+

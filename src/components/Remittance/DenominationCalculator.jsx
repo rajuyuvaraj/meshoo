@@ -150,7 +150,7 @@ export default function DenominationCalculator() {
   }, [counts]);
 
   const handleCopySummary = () => {
-    let summary = `*VARANASI HUB - CASH & ONLINE DENOMINATION TALLY*\n`;
+    let summary = `*UT8 HUB - CASH & ONLINE DENOMINATION TALLY*\n`;
     summary += `📅 Date: ${new Date().toLocaleDateString('en-IN')}\n\n`;
     calculations.rowDetails.forEach(r => {
       if (r.count > 0) {

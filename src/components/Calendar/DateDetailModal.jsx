@@ -101,7 +101,7 @@ export default function DateDetailModal({
             <div>
               <h3 className="modal-title">{formatDate(dateStr, 'long')}</h3>
               <p style={{ fontSize: '0.78rem', color: '#64748b' }}>
-                Varanasi Hub Daily Operations & Cash Deposit Summary
+                UT8 HUB Daily Operations & Cash Deposit Summary
               </p>
             </div>
           </div>

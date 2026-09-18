@@ -151,7 +151,7 @@ export const dataService = {
             email: session.user.email,
             username: session.user.email.split('@')[0],
             role: 'Hub Manager',
-            hub: 'Varanasi Hub (VNS-01)',
+            hub: 'UT8 HUB (UT8-01)',
             name: SECURE_MANAGER_CREDENTIALS.displayName,
           };
         }
@@ -196,7 +196,7 @@ export const dataService = {
         email: 'vaibhav@varanasi-hub.in',
         username: 'vaibhav',
         role: 'Hub Manager',
-        hub: 'Varanasi Hub (VNS-01)',
+        hub: 'UT8 HUB (UT8-01)',
         name: 'Vaibhav',
       };
 
@@ -242,7 +242,7 @@ export const dataService = {
           email: data.user.email,
           username: cleanUser,
           role: 'Hub Manager',
-          hub: 'Varanasi Hub (VNS-01)',
+          hub: 'UT8 HUB (UT8-01)',
           name: SECURE_MANAGER_CREDENTIALS.displayName,
         };
         const session = {
@@ -374,7 +374,7 @@ export const dataService = {
       agent_name: entry.agent_name?.trim() || 'Rider',
       login_account_id: entry.login_account_id?.trim() || '',
       entry_date: entry.entry_date,
-      hub_location: entry.hub_location || 'Varanasi Hub',
+      hub_location: entry.hub_location || 'UT8 HUB',
       total_delivered: Number(entry.total_delivered) || 0,
       cod_orders: Number(entry.cod_orders) || 0,
       online_received: onlineReceived,
@@ -506,7 +506,7 @@ export const dataService = {
         agent_name: item.agent_name || 'Rider',
         login_account_id: item.login_account_id || '',
         entry_date: item.entry_date || new Date().toISOString().split('T')[0],
-        hub_location: item.hub_location || 'Varanasi Hub',
+        hub_location: item.hub_location || 'UT8 HUB',
         total_delivered: Number(item.total_delivered) || 0,
         cod_orders: Number(item.cod_orders) || 0,
         online_received: onlineReceived,
@@ -606,7 +606,7 @@ export const dataService = {
 
     const payload = {
       entry_date: remittanceData.entry_date,
-      hub_location: remittanceData.hub_location || 'Varanasi Hub',
+      hub_location: remittanceData.hub_location || 'UT8 HUB',
       deposit_bank: remittanceData.deposit_bank || 'State Bank of India',
       deposit_branch: remittanceData.deposit_branch || 'Varanasi Main Branch (Cantt)',
       cash_challan_no: remittanceData.cash_challan_no || '',
