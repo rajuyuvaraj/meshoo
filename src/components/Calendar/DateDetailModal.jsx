@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   X, 
   Plus, 
@@ -9,10 +9,14 @@ import {
   User, 
   Lock,
   Download,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Eye,
+  Camera,
+  FileText
 } from 'lucide-react';
 import { formatINR, formatDate, calculateRiderSalary } from '../../utils/formatters';
 import { exportSingleDateExcel } from '../../utils/excelExport';
+import ReceiptViewerModal from '../Common/ReceiptViewerModal';
 
 export default function DateDetailModal({ 
   dateStr, 
@@ -26,6 +30,10 @@ export default function DateDetailModal({
   onDeleteDeposit,
   onToggleSalary
 }) {
+  const [selectedReceiptDeposit, setSelectedReceiptDeposit] = useState(null);
+  const [deletingDepositKey, setDeletingDepositKey] = useState(null);
+  const [deletingEntryKey, setDeletingEntryKey] = useState(null);
+
   // Aggregate stats for this specific date
   const dayStats = useMemo(() => {
     let totalDelivered = 0;
@@ -302,17 +310,60 @@ export default function DateDetailModal({
                               >
                                 <Edit3 size={14} />
                               </button>
-                              <button
-                                className="btn-icon"
-                                style={{ width: 28, height: 28, color: '#ef4444' }}
-                                title="Delete Entry"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onDeleteEntry(entry.id, entry.agent_name, entry.entry_date);
-                                }}
-                              >
-                                <Trash2 size={14} />
-                              </button>
+                              {deletingEntryKey === (entry.id || `${entry.agent_name}_${entry.entry_date}`) ? (
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                  <button
+                                    type="button"
+                                    style={{
+                                      background: '#ef4444',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      padding: '2px 6px',
+                                      borderRadius: '4px',
+                                      fontSize: '0.68rem',
+                                      fontWeight: 700,
+                                      cursor: 'pointer'
+                                    }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onDeleteEntry(entry.id, entry.agent_name, entry.entry_date);
+                                      setDeletingEntryKey(null);
+                                    }}
+                                  >
+                                    Del
+                                  </button>
+                                  <button
+                                    type="button"
+                                    style={{
+                                      background: '#e2e8f0',
+                                      color: '#475569',
+                                      border: 'none',
+                                      padding: '2px 4px',
+                                      borderRadius: '4px',
+                                      fontSize: '0.68rem',
+                                      cursor: 'pointer'
+                                    }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeletingEntryKey(null);
+                                    }}
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  className="btn-icon"
+                                  style={{ width: 28, height: 28, color: '#ef4444' }}
+                                  title="Delete Entry"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeletingEntryKey(entry.id || `${entry.agent_name}_${entry.entry_date}`);
+                                  }}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -377,40 +428,116 @@ export default function DateDetailModal({
                       <th>Deposit Date</th>
                       <th>Description</th>
                       <th style={{ textAlign: 'right' }}>Amount Deposited</th>
+                      <th style={{ textAlign: 'center' }}>Proof / Receipt</th>
                       <th style={{ textAlign: 'center' }}>Status</th>
                       <th style={{ textAlign: 'center' }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {deposits.map(dep => (
-                      <tr key={dep.id || dep.entry_date}>
-                        <td>
-                          <div style={{ fontWeight: 700, color: '#0f172a' }}>{formatDate(dep.entry_date, 'medium')}</div>
-                        </td>
-                        <td>
-                          <div style={{ fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>Hub Bank Remittance</div>
-                        </td>
-                        <td style={{ textAlign: 'right', fontWeight: 800, color: '#0d9488', fontSize: '1rem' }}>
-                          {formatINR(dep.cash_deposited)}
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <span className="badge badge-balanced">Verified</span>
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <button
-                            className="btn-icon"
-                            style={{ width: 28, height: 28, color: '#ef4444' }}
-                            title="Delete Deposit Record"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteDeposit(dep.id, dep.entry_date);
-                            }}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {deposits.map(dep => {
+                      const hasReceipt = Boolean(dep.receipt_image || dep.receipt_url);
+
+                      return (
+                        <tr key={dep.id || dep.entry_date}>
+                          <td>
+                            <div style={{ fontWeight: 700, color: '#0f172a' }}>{formatDate(dep.entry_date, 'medium')}</div>
+                          </td>
+                          <td>
+                            <div style={{ fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>Hub Bank Remittance</div>
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: 800, color: '#0d9488', fontSize: '1rem', fontFamily: 'var(--font-heading)' }}>
+                            {formatINR(dep.cash_deposited)}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            {hasReceipt ? (
+                              <button
+                                type="button"
+                                className="btn btn-sm"
+                                style={{
+                                  background: '#f0fdfa',
+                                  color: '#0d9488',
+                                  border: '1px solid #99f6e4',
+                                  fontWeight: 700,
+                                  fontSize: '0.75rem',
+                                  padding: '4px 10px',
+                                  borderRadius: '6px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  cursor: 'pointer'
+                                }}
+                                onClick={() => setSelectedReceiptDeposit(dep)}
+                                title="View Bank Deposit Slip Picture"
+                              >
+                                <Eye size={14} />
+                                <span>View Slip</span>
+                              </button>
+                            ) : (
+                              <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>No slip</span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <span className="badge badge-balanced">Verified</span>
+                          </td>
+                          <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {deletingDepositKey === (dep.id || dep.entry_date) ? (
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <button
+                                  type="button"
+                                  style={{
+                                    background: '#ef4444',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    padding: '3px 7px',
+                                    borderRadius: '5px',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer'
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDeleteDeposit(dep.id, dep.entry_date);
+                                    setDeletingDepositKey(null);
+                                  }}
+                                >
+                                  Delete
+                                </button>
+                                <button
+                                  type="button"
+                                  style={{
+                                    background: '#e2e8f0',
+                                    color: '#475569',
+                                    border: 'none',
+                                    padding: '3px 5px',
+                                    borderRadius: '5px',
+                                    fontSize: '0.7rem',
+                                    cursor: 'pointer'
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeletingDepositKey(null);
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                className="btn-icon"
+                                style={{ width: 28, height: 28, color: '#ef4444', margin: '0 auto' }}
+                                title="Delete Deposit Record"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeletingDepositKey(dep.id || dep.entry_date);
+                                }}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -453,6 +580,14 @@ export default function DateDetailModal({
           </div>
         </div>
       </div>
+
+      {/* Lightbox Receipt Viewer */}
+      {selectedReceiptDeposit && (
+        <ReceiptViewerModal
+          deposit={selectedReceiptDeposit}
+          onClose={() => setSelectedReceiptDeposit(null)}
+        />
+      )}
     </div>
   );
 }

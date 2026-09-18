@@ -1,7 +1,7 @@
 import React from 'react';
-import { Truck, LogOut, Calendar as CalendarIcon, ShieldCheck, Download } from 'lucide-react';
+import { Truck, LogOut, Download } from 'lucide-react';
 
-export default function Header({ user, onLogout, activeTab, onTabChange, onExportAll }) {
+export default function Header({ user, onLogout, onExportAll }) {
   const managerDisplayName = user?.name || user?.username || 'Vaibhav';
   const managerInitials = managerDisplayName.substring(0, 2).toUpperCase();
 
@@ -19,28 +19,10 @@ export default function Header({ user, onLogout, activeTab, onTabChange, onExpor
               <span className="hub-tag">VNS-01</span>
             </div>
             <div className="subtitle">
-              <span>Fleet Operations & Bank Remittance</span>
+              <span>Fleet Operations</span>
             </div>
           </div>
         </div>
-
-        {/* Navigation Tabs (Calendar & Remittance) */}
-        <nav className="desktop-nav">
-          <button
-            className={`desktop-nav-item ${activeTab === 'calendar' ? 'active' : ''}`}
-            onClick={() => onTabChange && onTabChange('calendar')}
-          >
-            <CalendarIcon size={16} />
-            <span>Calendar Reconciliation</span>
-          </button>
-          <button
-            className={`desktop-nav-item ${activeTab === 'remittance' ? 'active' : ''}`}
-            onClick={() => onTabChange && onTabChange('remittance')}
-          >
-            <ShieldCheck size={16} />
-            <span>Bank Remittance</span>
-          </button>
-        </nav>
 
         {/* Right Section: Manager Profile & Sign Out */}
         <div className="header-actions">

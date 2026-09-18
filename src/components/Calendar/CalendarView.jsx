@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { 
   ChevronLeft, 
   ChevronRight, 
+  ChevronDown,
+  ChevronUp,
   Plus, 
   Package, 
   CreditCard, 
@@ -20,6 +22,7 @@ import {
 } from 'lucide-react';
 import { formatINR, formatDate } from '../../utils/formatters';
 import { exportAllDatesExcel } from '../../utils/excelExport';
+import DenominationCalculator from '../Remittance/DenominationCalculator';
 
 export default function CalendarView({ 
   dailyEntries = [], 
@@ -172,6 +175,9 @@ export default function CalendarView({
 
     return cells;
   }, [year, month, entriesByDate, depositsByDate]);
+
+  // Activity feed dropdown open state
+  const [isFeedOpen, setIsFeedOpen] = useState(false);
 
   // Combined recent activity feed (Shift Collections + Bank Deposits)
   const combinedActivityFeed = useMemo(() => {
@@ -444,107 +450,181 @@ export default function CalendarView({
         </div>
       </div>
 
-      {/* Unified Activity & Deposit Ledger Feed */}
-      <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '20px', marginTop: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <div>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
-              Recent Collections & Bank Deposit Activity Feed
-            </h3>
-            <p style={{ fontSize: '0.75rem', color: '#64748b' }}>
-              Live audit trail of rider cash handovers and bank branch deposits
-            </p>
+      {/* Unified Activity & Deposit Ledger Feed (Collapsible Accordion / Dropdown) */}
+      <div style={{
+        background: '#ffffff',
+        borderRadius: '16px',
+        border: '1.5px solid #e2e8f0',
+        overflow: 'hidden',
+        marginTop: '20px',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)'
+      }}>
+        {/* Accordion Header / Dropdown Toggle Button */}
+        <button
+          type="button"
+          onClick={() => setIsFeedOpen(!isFeedOpen)}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '16px 20px',
+            background: isFeedOpen ? '#f8fafc' : '#ffffff',
+            border: 'none',
+            borderBottom: isFeedOpen ? '1px solid #e2e8f0' : 'none',
+            cursor: 'pointer',
+            textAlign: 'left',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: 38,
+              height: 38,
+              borderRadius: '10px',
+              background: '#eef2ff',
+              color: '#4f46e5',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <CalendarIcon size={20} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h3 style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                  Recent Collections & Bank Deposit Activity Feed
+                </h3>
+                <span style={{
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  background: '#e2e8f0',
+                  color: '#475569',
+                  padding: '2px 8px',
+                  borderRadius: '12px'
+                }}>
+                  {combinedActivityFeed.length} {combinedActivityFeed.length === 1 ? 'Activity' : 'Activities'}
+                </span>
+              </div>
+              <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '2px 0 0 0' }}>
+                Live audit trail of rider cash handovers and bank branch deposits • Click to {isFeedOpen ? 'collapse' : 'view details'}
+              </p>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Vault Balance:</span>
-            <span style={{ fontWeight: 800, color: monthAggregates.cashInVault > 0 ? '#b45309' : '#059669', fontSize: '1.05rem' }}>
-              {formatINR(monthAggregates.cashInVault)}
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ textAlign: 'right', display: 'none', smDisplay: 'block' }}>
+              <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Vault Balance</div>
+              <div style={{ fontWeight: 800, color: monthAggregates.cashInVault > 0 ? '#b45309' : '#059669', fontSize: '0.95rem' }}>
+                {formatINR(monthAggregates.cashInVault)}
+              </div>
+            </div>
+
+            <div style={{
+              width: 32,
+              height: 32,
+              borderRadius: '8px',
+              background: isFeedOpen ? '#e2e8f0' : '#f1f5f9',
+              color: '#334155',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'transform 0.2s ease'
+            }}>
+              {isFeedOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+            </div>
           </div>
-        </div>
+        </button>
 
-        {combinedActivityFeed.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8', fontSize: '0.85rem' }}>
-            No shift collections or deposit activity recorded yet.
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {combinedActivityFeed.map(item => {
-              const isDeposit = item.type === 'deposit';
+        {/* Accordion Content */}
+        {isFeedOpen && (
+          <div style={{ padding: '16px 20px', background: '#ffffff' }}>
+            {combinedActivityFeed.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8', fontSize: '0.85rem' }}>
+                No shift collections or deposit activity recorded yet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {combinedActivityFeed.map(item => {
+                  const isDeposit = item.type === 'deposit';
 
-              return (
-                <div
-                  key={`${item.type}-${item.id}`}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 14px',
-                    borderRadius: '10px',
-                    background: isDeposit ? '#f0fdfa' : '#f8fafc',
-                    border: `1px solid ${isDeposit ? '#99f6e4' : '#e2e8f0'}`,
-                    transition: 'all 0.15s'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: '8px',
-                      background: isDeposit ? '#ccfbf1' : '#eef2ff',
-                      color: isDeposit ? '#0d9488' : '#4f46e5',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      {isDeposit ? <Building2 size={18} /> : <User size={18} />}
-                    </div>
+                  return (
+                    <div
+                      key={`${item.type}-${item.id}`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px 14px',
+                        borderRadius: '10px',
+                        background: isDeposit ? '#f0fdfa' : '#f8fafc',
+                        border: `1px solid ${isDeposit ? '#99f6e4' : '#e2e8f0'}`,
+                        transition: 'all 0.15s'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: '8px',
+                          background: isDeposit ? '#ccfbf1' : '#eef2ff',
+                          color: isDeposit ? '#0d9488' : '#4f46e5',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          {isDeposit ? <Building2 size={18} /> : <User size={18} />}
+                        </div>
 
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0f172a' }}>
-                        {item.title}
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0f172a' }}>
+                            {item.title}
+                          </div>
+                          <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                            {formatDate(item.date, 'short')} • {item.subtitle}
+                          </div>
+                        </div>
                       </div>
-                      <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
-                        {formatDate(item.date, 'short')} • {item.subtitle}
+
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{
+                          fontFamily: 'var(--font-heading)',
+                          fontWeight: 800,
+                          fontSize: '1rem',
+                          color: isDeposit ? '#0d9488' : '#312e81',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'flex-end',
+                          gap: '4px'
+                        }}>
+                          {isDeposit ? (
+                            <>
+                              <ArrowDownRight size={15} color="#0d9488" />
+                              <span>- {formatINR(item.amount)}</span>
+                            </>
+                          ) : (
+                            <>
+                              <ArrowUpRight size={15} color="#4f46e5" />
+                              <span>+ {formatINR(item.amount)}</span>
+                            </>
+                          )}
+                        </div>
+
+                        <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                          {isDeposit ? 'Bank Deposit Handover' : `Total Settled: ${formatINR(item.raw?.total_settled || item.amount)}`}
+                        </div>
                       </div>
                     </div>
-                  </div>
-
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{
-                      fontFamily: 'var(--font-heading)',
-                      fontWeight: 800,
-                      fontSize: '1rem',
-                      color: isDeposit ? '#0d9488' : '#312e81',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'flex-end',
-                      gap: '4px'
-                    }}>
-                      {isDeposit ? (
-                        <>
-                          <ArrowDownRight size={15} color="#0d9488" />
-                          <span>- {formatINR(item.amount)}</span>
-                        </>
-                      ) : (
-                        <>
-                          <ArrowUpRight size={15} color="#4f46e5" />
-                          <span>+ {formatINR(item.amount)}</span>
-                        </>
-                      )}
-                    </div>
-
-                    <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                      {isDeposit ? 'Bank Deposit Handover' : `Total Settled: ${formatINR(item.raw?.total_settled || item.amount)}`}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Manager Cash & Denomination Tally Pad (Always accessible right below dropdown) */}
+      <DenominationCalculator expectedCollection={monthAggregates.totalSettled} />
 
       {/* Floating Action Button */}
       <button

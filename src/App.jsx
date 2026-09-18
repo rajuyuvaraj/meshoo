@@ -136,21 +136,22 @@ export default function App() {
   };
 
   const handleDeleteDailyEntry = async (entryId, agentName = null, entryDate = null) => {
-    if (window.confirm('Are you sure you want to delete this shift reconciliation entry?')) {
-      setDailyEntries(prev => prev.filter(e => {
-        if (entryId && e.id === entryId) return false;
-        if (agentName && entryDate && e.agent_name === agentName && e.entry_date === entryDate) return false;
-        return true;
-      }));
-      try {
-        await dataService.deleteDailyEntry(entryId, agentName, entryDate);
-        await loadData();
-        addToast('Entry removed from shift records');
-      } catch (err) {
-        console.error('Failed to delete shift entry:', err);
-        await loadData();
-        addToast('Failed to delete entry', 'error');
-      }
+    // Immediate optimistic update
+    setDailyEntries(prev => prev.filter(e => {
+      if (entryId && e.id === entryId) return false;
+      if (agentName && entryDate && e.agent_name === agentName && e.entry_date === entryDate) return false;
+      return true;
+    }));
+
+    try {
+      await dataService.deleteDailyEntry(entryId, agentName, entryDate);
+      const updated = await dataService.getDailyEntries();
+      setDailyEntries(updated);
+      addToast('Entry removed from shift records');
+    } catch (err) {
+      console.error('Failed to delete shift entry:', err);
+      await loadData();
+      addToast('Failed to delete entry', 'error');
     }
   };
 
@@ -189,24 +190,22 @@ export default function App() {
   };
 
   const handleDeleteDeposit = async (idOrDate, entryDate = null) => {
-    if (window.confirm('Are you sure you want to delete this bank deposit record?')) {
-      // Optimistic update
-      setRemittanceEntries(prev => prev.filter(r => {
-        if (idOrDate && r.id === idOrDate) return false;
-        if (idOrDate && r.entry_date === idOrDate) return false;
-        if (entryDate && r.entry_date === entryDate) return false;
-        return true;
-      }));
+    // Immediate optimistic update
+    setRemittanceEntries(prev => prev.filter(r => {
+      if (idOrDate && (r.id === idOrDate || r.entry_date === idOrDate)) return false;
+      if (entryDate && r.entry_date === entryDate) return false;
+      return true;
+    }));
 
-      try {
-        await dataService.deleteRemittanceEntry(idOrDate, entryDate);
-        await loadData();
-        addToast('Deposit record deleted');
-      } catch (err) {
-        console.error('Failed to delete deposit record:', err);
-        await loadData();
-        addToast('Failed to delete deposit record', 'error');
-      }
+    try {
+      await dataService.deleteRemittanceEntry(idOrDate, entryDate);
+      const updated = await dataService.getRemittanceEntries();
+      setRemittanceEntries(updated);
+      addToast('Deposit record deleted');
+    } catch (err) {
+      console.error('Failed to delete deposit record:', err);
+      await loadData();
+      addToast('Failed to delete deposit record', 'error');
     }
   };
 

@@ -2,6 +2,7 @@ import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { generateInitialDailyEntries, generateInitialRemittanceEntries } from './mockSeedData';
 import { calculateCashTally, getAuditStatus } from '../utils/formatters';
 import { hashString, secureCompare, SECURE_MANAGER_CREDENTIALS } from '../utils/security';
+import { saveReceiptToStorage, getReceiptFromStorage, deleteReceiptFromStorage } from '../utils/fileUtils';
 
 const STORAGE_KEYS = {
   DAILY_ENTRIES: 'vns_hub_daily_entries',
@@ -9,7 +10,69 @@ const STORAGE_KEYS = {
   KNOWN_AGENTS: 'vns_hub_known_agents',
   AUTH_SESSION: 'vns_hub_secure_session',
   SALARY_STATUS_MAP: 'vns_hub_salary_status_map',
+  DELETED_REMITTANCES: 'vns_hub_deleted_remittances',
+  DELETED_DAILY_ENTRIES: 'vns_hub_deleted_daily_entries',
 };
+
+function getDeletedRemittanceSet() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.DELETED_REMITTANCES) || '[]'));
+  } catch {
+    return new Set();
+  }
+}
+
+function recordDeletedRemittance(id, entryDate) {
+  try {
+    const set = getDeletedRemittanceSet();
+    if (id) set.add(String(id));
+    if (entryDate) set.add(String(entryDate));
+    localStorage.setItem(STORAGE_KEYS.DELETED_REMITTANCES, JSON.stringify(Array.from(set)));
+  } catch (e) {
+    console.warn('Failed to record deleted remittance tombstone', e);
+  }
+}
+
+function unmarkDeletedRemittance(id, entryDate) {
+  try {
+    const set = getDeletedRemittanceSet();
+    if (id) set.delete(String(id));
+    if (entryDate) set.delete(String(entryDate));
+    localStorage.setItem(STORAGE_KEYS.DELETED_REMITTANCES, JSON.stringify(Array.from(set)));
+  } catch (e) {}
+}
+
+function getDeletedDailyEntriesSet() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.DELETED_DAILY_ENTRIES) || '[]'));
+  } catch {
+    return new Set();
+  }
+}
+
+function recordDeletedDailyEntry(id, agentName, entryDate) {
+  try {
+    const set = getDeletedDailyEntriesSet();
+    if (id) set.add(String(id));
+    if (agentName && entryDate) {
+      set.add(`${agentName.trim().toLowerCase()}_${entryDate}`);
+    }
+    localStorage.setItem(STORAGE_KEYS.DELETED_DAILY_ENTRIES, JSON.stringify(Array.from(set)));
+  } catch (e) {
+    console.warn('Failed to record deleted daily entry tombstone', e);
+  }
+}
+
+function unmarkDeletedDailyEntry(id, agentName, entryDate) {
+  try {
+    const set = getDeletedDailyEntriesSet();
+    if (id) set.delete(String(id));
+    if (agentName && entryDate) {
+      set.delete(`${agentName.trim().toLowerCase()}_${entryDate}`);
+    }
+    localStorage.setItem(STORAGE_KEYS.DELETED_DAILY_ENTRIES, JSON.stringify(Array.from(set)));
+  } catch (e) {}
+}
 
 function getSalaryStatusMap() {
   try {
@@ -246,6 +309,8 @@ export const dataService = {
   // DAILY DELIVERY ENTRIES
   // --------------------------------------------------------------------------
   async getDailyEntries({ monthStr = null, dateStr = null } = {}) {
+    const deletedDailySet = getDeletedDailyEntriesSet();
+
     if (isSupabaseConfigured && supabase) {
       let query = supabase.from('daily_entries').select('*').order('entry_date', { ascending: false });
 
@@ -258,8 +323,14 @@ export const dataService = {
       }
 
       const { data, error } = await query;
-      if (!error && data) {
-        return data.map(row => ({
+      if (!error && Array.isArray(data)) {
+        const valid = data.filter(row => {
+          if (row.id && deletedDailySet.has(String(row.id))) return false;
+          if (row.agent_name && row.entry_date && deletedDailySet.has(`${row.agent_name.trim().toLowerCase()}_${row.entry_date}`)) return false;
+          return true;
+        });
+
+        return valid.map(row => ({
           ...row,
           salary_paid: resolveSalaryPaid(row),
         }));
@@ -270,6 +341,8 @@ export const dataService = {
     const entries = JSON.parse(localStorage.getItem(STORAGE_KEYS.DAILY_ENTRIES) || '[]');
 
     const filtered = entries.filter(e => {
+      if (e.id && deletedDailySet.has(String(e.id))) return false;
+      if (e.agent_name && e.entry_date && deletedDailySet.has(`${e.agent_name.trim().toLowerCase()}_${e.entry_date}`)) return false;
       if (dateStr && e.entry_date !== dateStr) return false;
       if (monthStr && !e.entry_date.startsWith(monthStr)) return false;
       return true;
@@ -282,6 +355,8 @@ export const dataService = {
   },
 
   async saveDailyEntry(entry) {
+    unmarkDeletedDailyEntry(entry.id, entry.agent_name, entry.entry_date);
+
     const actualCashTally = entry.cash_collected_fe !== undefined && entry.cash_collected_fe !== null && entry.cash_collected_fe !== ''
       ? Number(entry.cash_collected_fe) || 0
       : (entry.actual_cash_tally !== undefined && entry.actual_cash_tally !== null && entry.actual_cash_tally !== ''
@@ -389,9 +464,14 @@ export const dataService = {
   },
 
   async deleteDailyEntry(id, agentName = null, entryDate = null) {
+    recordDeletedDailyEntry(id, agentName, entryDate);
     ensureLocalStorageInitialized();
     const entries = JSON.parse(localStorage.getItem(STORAGE_KEYS.DAILY_ENTRIES) || '[]');
-    const remaining = entries.filter(e => e.id !== id && !(agentName && entryDate && e.agent_name === agentName && e.entry_date === entryDate));
+    const remaining = entries.filter(e => {
+      if (id && e.id === id) return false;
+      if (agentName && entryDate && e.agent_name === agentName && e.entry_date === entryDate) return false;
+      return true;
+    });
     localStorage.setItem(STORAGE_KEYS.DAILY_ENTRIES, JSON.stringify(remaining));
 
     if (isSupabaseConfigured && supabase) {
@@ -446,6 +526,7 @@ export const dataService = {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
+      unmarkDeletedDailyEntry(newEntry.id, newEntry.agent_name, newEntry.entry_date);
       existing.push(newEntry);
       added.push(newEntry);
       await this.recordKnownAgent(newEntry.agent_name, newEntry.login_account_id);
@@ -459,16 +540,61 @@ export const dataService = {
   // BANK REMITTANCE ENTRIES
   // --------------------------------------------------------------------------
   async getRemittanceEntries({ monthStr = null, dateStr = null } = {}) {
+    ensureLocalStorageInitialized();
+    const deletedSet = getDeletedRemittanceSet();
+    let localRecords = JSON.parse(localStorage.getItem(STORAGE_KEYS.REMITTANCE_ENTRIES) || '[]');
+    localRecords = localRecords.filter(r => !deletedSet.has(String(r.id)) && !deletedSet.has(String(r.entry_date)));
+    let records = [...localRecords];
+
     if (isSupabaseConfigured && supabase) {
-      let query = supabase.from('remittance_entries').select('*').order('entry_date', { ascending: false });
-      if (dateStr) query = query.eq('entry_date', dateStr);
-      const { data, error } = await query;
-      if (!error && data) return data;
+      try {
+        let query = supabase.from('remittance_entries').select('*').order('entry_date', { ascending: false });
+        if (dateStr) query = query.eq('entry_date', dateStr);
+        const { data, error } = await query;
+        if (!error && Array.isArray(data)) {
+          // Filter remote data against deletedSet
+          const validRemote = data.filter(r => !deletedSet.has(String(r.id)) && !deletedSet.has(String(r.entry_date)));
+          const dateMap = new Map();
+          validRemote.forEach(r => dateMap.set(r.entry_date, r));
+          localRecords.forEach(l => {
+            const remote = dateMap.get(l.entry_date);
+            if (remote) {
+              dateMap.set(l.entry_date, {
+                ...remote,
+                ...l,
+                receipt_image: l.receipt_image || remote.receipt_image,
+                receipt_filename: l.receipt_filename || remote.receipt_filename,
+              });
+            } else {
+              dateMap.set(l.entry_date, l);
+            }
+          });
+          records = Array.from(dateMap.values());
+        }
+      } catch (err) {
+        console.warn('Supabase fetch remittance note:', err);
+      }
     }
 
-    ensureLocalStorageInitialized();
-    const records = JSON.parse(localStorage.getItem(STORAGE_KEYS.REMITTANCE_ENTRIES) || '[]');
-    return records.filter(r => {
+    // Merge with IndexedDB & memory receipt data if image isn't already populated
+    const enriched = await Promise.all(records.map(async (r) => {
+      if (r.receipt_image) return r;
+      try {
+        const storedReceipt = await getReceiptFromStorage(r.entry_date) || (r.id ? await getReceiptFromStorage(r.id) : null);
+        if (storedReceipt?.dataUrl) {
+          return {
+            ...r,
+            receipt_image: storedReceipt.dataUrl,
+            receipt_filename: r.receipt_filename || storedReceipt.filename || 'deposit_receipt.jpg',
+          };
+        }
+      } catch (err) {
+        console.warn('Error reading stored receipt:', err);
+      }
+      return r;
+    }));
+
+    return enriched.filter(r => {
       if (dateStr && r.entry_date !== dateStr) return false;
       if (monthStr && !r.entry_date.startsWith(monthStr)) return false;
       return true;
@@ -476,6 +602,8 @@ export const dataService = {
   },
 
   async saveRemittanceEntry(remittanceData) {
+    unmarkDeletedRemittance(remittanceData.id, remittanceData.entry_date);
+
     const payload = {
       entry_date: remittanceData.entry_date,
       hub_location: remittanceData.hub_location || 'Varanasi Hub',
@@ -485,6 +613,8 @@ export const dataService = {
       cash_deposited: Number(remittanceData.cash_deposited) || 0,
       bank_utr_ref_no: remittanceData.bank_utr_ref_no || '',
       online_remitted: Number(remittanceData.online_remitted) || 0,
+      receipt_image: remittanceData.receipt_image || null,
+      receipt_filename: remittanceData.receipt_filename || '',
       area_manager_name: remittanceData.area_manager_name || 'Rajesh Kumar (AM)',
       manager_approval_status: remittanceData.manager_approval_status || 'Approved & Reconciled',
       signoff_date: remittanceData.signoff_date || remittanceData.entry_date,
@@ -492,42 +622,96 @@ export const dataService = {
       updated_at: new Date().toISOString(),
     };
 
+    const recordId = remittanceData.id || `rem-${Date.now()}`;
+
+    // 1. Save receipt to IndexedDB + memory storage
+    if (payload.receipt_image) {
+      await saveReceiptToStorage(payload.entry_date, {
+        dataUrl: payload.receipt_image,
+        filename: payload.receipt_filename || `deposit_${payload.entry_date}.jpg`,
+      });
+      await saveReceiptToStorage(recordId, {
+        dataUrl: payload.receipt_image,
+        filename: payload.receipt_filename || `deposit_${payload.entry_date}.jpg`,
+      });
+    }
+
+    // 2. Persist in LocalStorage
     ensureLocalStorageInitialized();
     const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.REMITTANCE_ENTRIES) || '[]');
-    const idx = list.findIndex(r => r.entry_date === payload.entry_date);
+    const idx = list.findIndex(r => r.entry_date === payload.entry_date || (remittanceData.id && r.id === remittanceData.id));
     let localResult;
     if (idx >= 0) {
-      list[idx] = { ...list[idx], ...payload };
+      list[idx] = { ...list[idx], ...payload, id: list[idx].id || recordId };
       localResult = list[idx];
     } else {
       localResult = {
-        id: remittanceData.id || `rem-${Date.now()}`,
+        id: recordId,
         ...payload,
         created_at: new Date().toISOString(),
       };
       list.push(localResult);
     }
-    localStorage.setItem(STORAGE_KEYS.REMITTANCE_ENTRIES, JSON.stringify(list));
 
+    try {
+      localStorage.setItem(STORAGE_KEYS.REMITTANCE_ENTRIES, JSON.stringify(list));
+    } catch (quotaErr) {
+      console.warn('localStorage quota note, keeping receipt in IndexedDB:', quotaErr);
+      const strippedList = list.map(item => ({ ...item, receipt_image: null }));
+      try {
+        localStorage.setItem(STORAGE_KEYS.REMITTANCE_ENTRIES, JSON.stringify(strippedList));
+      } catch (e) {}
+    }
+
+    // 3. Sync to Supabase if configured
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase
-        .from('remittance_entries')
-        .upsert([payload], { onConflict: 'entry_date' })
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase
+          .from('remittance_entries')
+          .upsert([payload], { onConflict: 'entry_date' })
+          .select()
+          .single();
+
+        if (!error && data) {
+          return { ...data, receipt_image: payload.receipt_image, receipt_filename: payload.receipt_filename };
+        }
+
+        // If error (e.g. column receipt_image missing), fallback without receipt columns
+        if (error) {
+          console.warn('Supabase upsert with receipt columns note, retrying fallback:', error.message);
+          const { receipt_image, receipt_filename, ...fallbackPayload } = payload;
+          const { data: fallbackData, error: fallbackErr } = await supabase
+            .from('remittance_entries')
+            .upsert([fallbackPayload], { onConflict: 'entry_date' })
+            .select()
+            .single();
+
+          if (!fallbackErr && fallbackData) {
+            return { ...fallbackData, receipt_image: payload.receipt_image, receipt_filename: payload.receipt_filename };
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase remittance write exception:', err);
+      }
     }
 
     return localResult;
   },
 
   async deleteRemittanceEntry(idOrDate, entryDate = null) {
+    recordDeletedRemittance(idOrDate, entryDate);
+
+    if (idOrDate) {
+      await deleteReceiptFromStorage(idOrDate);
+    }
+    if (entryDate) {
+      await deleteReceiptFromStorage(entryDate);
+    }
+
     ensureLocalStorageInitialized();
     const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.REMITTANCE_ENTRIES) || '[]');
     const remaining = list.filter(r => {
-      if (idOrDate && r.id === idOrDate) return false;
-      if (idOrDate && r.entry_date === idOrDate) return false;
+      if (idOrDate && (r.id === idOrDate || r.entry_date === idOrDate)) return false;
       if (entryDate && r.entry_date === entryDate) return false;
       return true;
     });
@@ -538,10 +722,10 @@ export const dataService = {
         const isDateString = typeof idOrDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(idOrDate);
         if (isDateString) {
           await supabase.from('remittance_entries').delete().eq('entry_date', idOrDate);
-        } else if (idOrDate && !String(idOrDate).startsWith('rem-')) {
-          await supabase.from('remittance_entries').delete().eq('id', idOrDate);
         } else if (entryDate) {
           await supabase.from('remittance_entries').delete().eq('entry_date', entryDate);
+        } else if (idOrDate && !String(idOrDate).startsWith('rem-')) {
+          await supabase.from('remittance_entries').delete().eq('id', idOrDate);
         }
       } catch (err) {
         console.error('Supabase deleteRemittanceEntry error:', err);
@@ -551,6 +735,8 @@ export const dataService = {
   },
 
   resetToMockData() {
+    localStorage.removeItem(STORAGE_KEYS.DELETED_REMITTANCES);
+    localStorage.removeItem(STORAGE_KEYS.DELETED_DAILY_ENTRIES);
     localStorage.setItem(STORAGE_KEYS.DAILY_ENTRIES, JSON.stringify(generateInitialDailyEntries()));
     localStorage.setItem(STORAGE_KEYS.REMITTANCE_ENTRIES, JSON.stringify(generateInitialRemittanceEntries()));
     localStorage.setItem(STORAGE_KEYS.KNOWN_AGENTS, JSON.stringify(INITIAL_KNOWN_AGENTS));
