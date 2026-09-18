@@ -106,7 +106,8 @@ export default function CalendarView({
       }
     });
 
-    const cashInVault = totalSettled - totalDepositAmount;
+    // Vault cash is Physical COD Cash collected by FEs minus Bank Physical Cash Deposited
+    const cashInVault = Math.max(0, codCash - totalDepositAmount);
 
     return {
       totalDeliveries,
@@ -118,6 +119,18 @@ export default function CalendarView({
       netVariance,
     };
   }, [dailyEntries, remittanceEntries, currentMonthStr]);
+
+  // Today's collections for quick calculator target preset
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todaySettled = useMemo(() => {
+    const todayEntries = entriesByDate.get(todayStr) || [];
+    return todayEntries.reduce((sum, e) => sum + (Number(e.total_settled) || 0), 0);
+  }, [entriesByDate, todayStr]);
+
+  const todayCash = useMemo(() => {
+    const todayEntries = entriesByDate.get(todayStr) || [];
+    return todayEntries.reduce((sum, e) => sum + (Number(e.actual_cash_tally) || 0), 0);
+  }, [entriesByDate, todayStr]);
 
   // Build calendar matrix
   const calendarCells = useMemo(() => {
@@ -231,21 +244,21 @@ export default function CalendarView({
             <CreditCard size={14} color="#059669" />
           </div>
           <div className="kpi-value">{formatINR(monthAggregates.onlinePayments)}</div>
-          <div className="kpi-subtext">UPI / Prepaid / QR</div>
+          <div className="kpi-subtext">UPI / Prepaid / QR (Direct Bank)</div>
         </div>
 
         <div 
           className="kpi-card cash" 
           style={{ cursor: 'pointer' }}
           onClick={() => onOpenDepositModal('collections', monthAggregates.totalSettled)}
-          title="Click to view all In-Hand collection transactions"
+          title="Click to view all collections"
         >
           <div className="kpi-label">
-            <span>Total In-Hand Collections</span>
+            <span>Total Collections</span>
             <Banknote size={14} color="#d97706" />
           </div>
           <div className="kpi-value">{formatINR(monthAggregates.totalSettled)}</div>
-          <div className="kpi-subtext">Online ({formatINR(monthAggregates.onlinePayments)}) + Cash ({formatINR(monthAggregates.codCash)})</div>
+          <div className="kpi-subtext">Cash ({formatINR(monthAggregates.codCash)}) + Online ({formatINR(monthAggregates.onlinePayments)})</div>
         </div>
 
         <div 
@@ -261,7 +274,7 @@ export default function CalendarView({
           <div className="kpi-value" style={{ color: '#0d9488' }}>
             {formatINR(monthAggregates.totalDepositAmount)}
           </div>
-          <div className="kpi-subtext">Total deposited to bank</div>
+          <div className="kpi-subtext">Physical cash deposited to bank</div>
         </div>
 
         <div 
@@ -278,7 +291,7 @@ export default function CalendarView({
             {formatINR(monthAggregates.cashInVault)}
           </div>
           <div className="kpi-subtext">
-            {monthAggregates.cashInVault > 0 ? 'Pending bank deposit' : 'Fully deposited to bank'}
+            {monthAggregates.cashInVault > 0 ? `Cash (${formatINR(monthAggregates.codCash)}) − Deposited (${formatINR(monthAggregates.totalDepositAmount)})` : 'Fully deposited to bank'}
           </div>
         </div>
 
@@ -624,7 +637,11 @@ export default function CalendarView({
       </div>
 
       {/* Manager Cash & Denomination Tally Pad (Always accessible right below dropdown) */}
-      <DenominationCalculator expectedCollection={monthAggregates.totalSettled} />
+      <DenominationCalculator 
+        todayTarget={todaySettled || todayCash}
+        monthTarget={monthAggregates.totalSettled}
+        vaultBalance={monthAggregates.cashInVault}
+      />
 
       {/* Floating Action Button */}
       <button

@@ -180,7 +180,7 @@ export function exportAllDatesExcel(dailyEntries = [], remittanceEntries = []) {
       'Total Settled (₹)': row.settled,
       'Net Variance (₹)': row.variance,
       'Bank Deposited (₹)': row.deposited,
-      'Vault in Hand (₹)': row.settled - row.deposited,
+      'Vault in Hand (₹)': Math.max(0, row.cashFE - row.deposited),
     }));
 
   const wsDaily = XLSX.utils.json_to_sheet(dailyAggregateRows.length > 0 ? dailyAggregateRows : [

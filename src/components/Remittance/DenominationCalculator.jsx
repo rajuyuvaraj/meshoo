@@ -28,7 +28,12 @@ const DEFAULT_DENOMINATIONS = [
   { value: 1, label: '₹1 Coin', type: 'coin', color: '#64748b' },
 ];
 
-export default function DenominationCalculator({ expectedCollection = 0 }) {
+export default function DenominationCalculator({ 
+  todayTarget = 0,
+  monthTarget = 0,
+  vaultBalance = 0,
+  expectedCollection = 0 
+}) {
   // Counts state for each denomination
   const [counts, setCounts] = useState(() => {
     try {
@@ -88,6 +93,13 @@ export default function DenominationCalculator({ expectedCollection = 0 }) {
     setCounts(prev => ({
       ...prev,
       targetComparison: cleanVal,
+    }));
+  };
+
+  const applyPresetTarget = (amount) => {
+    setCounts(prev => ({
+      ...prev,
+      targetComparison: Number(amount) || 0,
     }));
   };
 
@@ -474,15 +486,95 @@ export default function DenominationCalculator({ expectedCollection = 0 }) {
             </div>
 
             <div style={{ marginBottom: '12px' }}>
-              <label style={{ fontSize: '0.74rem', color: '#475569', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
-                Benchmark / Target Collection to Reconcile Against (₹)
-              </label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <label style={{ fontSize: '0.74rem', color: '#475569', fontWeight: 600 }}>
+                  Benchmark / Target Collection (₹)
+                </label>
+                {counts.targetComparison !== '' && (
+                  <button
+                    type="button"
+                    onClick={() => handleTargetChange('')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#ef4444',
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      padding: 0
+                    }}
+                  >
+                    Clear Target
+                  </button>
+                )}
+              </div>
+
+              {/* Quick Target Presets */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                {todayTarget > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => applyPresetTarget(todayTarget)}
+                    style={{
+                      fontSize: '0.68rem',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      background: counts.targetComparison === todayTarget ? '#e0e7ff' : '#ffffff',
+                      color: counts.targetComparison === todayTarget ? '#4338ca' : '#334155',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    📅 Today: {formatINR(todayTarget)}
+                  </button>
+                )}
+
+                {vaultBalance > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => applyPresetTarget(vaultBalance)}
+                    style={{
+                      fontSize: '0.68rem',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      background: counts.targetComparison === vaultBalance ? '#fef3c7' : '#ffffff',
+                      color: counts.targetComparison === vaultBalance ? '#b45309' : '#334155',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🔒 Vault: {formatINR(vaultBalance)}
+                  </button>
+                )}
+
+                {monthTarget > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => applyPresetTarget(monthTarget)}
+                    style={{
+                      fontSize: '0.68rem',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      background: counts.targetComparison === monthTarget ? '#f0fdf4' : '#ffffff',
+                      color: counts.targetComparison === monthTarget ? '#15803d' : '#334155',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    📊 Month: {formatINR(monthTarget)}
+                  </button>
+                )}
+              </div>
+
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <span style={{ position: 'absolute', left: '10px', color: '#64748b', fontWeight: 700, fontSize: '0.85rem' }}>₹</span>
                 <input
                   type="number"
                   min="0"
-                  placeholder={expectedCollection ? String(expectedCollection) : 'Enter expected total'}
+                  placeholder="Enter custom target or click a preset above"
                   value={counts.targetComparison ?? ''}
                   onChange={e => handleTargetChange(e.target.value)}
                   style={{
@@ -533,11 +625,11 @@ export default function DenominationCalculator({ expectedCollection = 0 }) {
                   {calculations.pendingDifference === 0 
                     ? 'EXACT MATCH / RECONCILED' 
                     : calculations.pendingDifference < 0 
-                      ? 'PENDING / SHORTAGE' 
+                      ? 'SHORTAGE / PENDING' 
                       : 'SURPLUS CASH'}
                 </div>
                 <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
-                  Grand Total vs Benchmark
+                  Grand Total ({formatINR(calculations.grandTotal)}) − Target ({formatINR(calculations.benchmarkTarget)})
                 </div>
               </div>
 
