@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { formatINR, formatDate } from '../../utils/formatters';
 import { compressImageFile, formatFileSize } from '../../utils/fileUtils';
+import { HUB_CONFIG } from '../../config/hubSettings';
 import ReceiptViewerModal from '../Common/ReceiptViewerModal';
 
 export default function RecordDepositModal({
@@ -174,14 +175,14 @@ export default function RecordDepositModal({
         id: depositToEdit?.id || null,
         entry_date: depositDate,
         cash_deposited: amount,
-        deposit_bank: 'State Bank of India',
-        deposit_branch: 'Varanasi Main Branch (Cantt)',
+        deposit_bank: depositToEdit?.deposit_bank || HUB_CONFIG.DEFAULT_DEPOSIT_BANK,
+        deposit_branch: depositToEdit?.deposit_branch || HUB_CONFIG.DEFAULT_DEPOSIT_BRANCH,
         cash_challan_no: `SBI-VNS-${depositDate.replace(/-/g, '')}`,
         bank_utr_ref_no: '',
-        hub_location: 'UT8 HUB',
+        hub_location: depositToEdit?.hub_location || HUB_CONFIG.HUB_NAME,
         receipt_image: receiptFile?.dataUrl || null,
         receipt_filename: receiptFile?.filename || '',
-        area_manager_name: 'Rajesh Kumar (AM)',
+        area_manager_name: depositToEdit?.area_manager_name || HUB_CONFIG.DEFAULT_AREA_MANAGER,
         manager_approval_status: 'Approved & Reconciled',
         remittance_audit_status: 'Verified • Bank Confirmed',
       });

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Truck, Lock, User, ArrowRight, AlertCircle, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Truck, Lock, Mail, ArrowRight, AlertCircle, Eye, EyeOff, ShieldCheck, Database, Play } from 'lucide-react';
 import { isSupabaseConfigured } from '../../services/supabaseClient';
 
-export default function LoginScreen({ onLoginSuccess }) {
-  const [username, setUsername] = useState('');
+export default function LoginScreen({ onLoginSuccess, onEnterDemoMode }) {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -14,9 +14,9 @@ export default function LoginScreen({ onLoginSuccess }) {
     setError('');
     setLoading(true);
     try {
-      await onLoginSuccess(username, password);
+      await onLoginSuccess(email, password);
     } catch (err) {
-      setError(err.message || 'Authentication failed. Please check your username and password.');
+      setError(err.message || 'Authentication failed. Please check your email and password.');
     } finally {
       setLoading(false);
     }
@@ -33,99 +33,136 @@ export default function LoginScreen({ onLoginSuccess }) {
           <p className="login-subtitle">Fleet Operations & Bank Remittance Tracker</p>
         </div>
 
-        {error && (
+        {/* If Supabase is not configured, show prominent Demo Mode Notice (Issue #1) */}
+        {!isSupabaseConfigured ? (
           <div style={{
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            color: '#991b1b',
-            padding: '10px 14px',
-            borderRadius: '8px',
-            fontSize: '0.85rem',
-            marginBottom: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
+            background: 'rgba(245, 158, 11, 0.1)',
+            border: '1.5px solid rgba(245, 158, 11, 0.4)',
+            color: '#b45309',
+            padding: '16px',
+            borderRadius: '12px',
+            marginBottom: '20px',
+            textAlign: 'center'
           }}>
-            <AlertCircle size={16} />
-            <span>{error}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Manager Username</label>
-            <div className="input-prefix-wrapper">
-              <span className="input-prefix"><User size={16} /></span>
-              <input
-                type="text"
-                className="form-input"
-                required
-                autoComplete="username"
-                placeholder="Enter Manager Username"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-              />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 700, fontSize: '0.95rem', marginBottom: '6px' }}>
+              <Database size={18} />
+              <span>Offline Demo Mode Active</span>
             </div>
-          </div>
+            <p style={{ fontSize: '0.82rem', color: '#78350f', lineHeight: 1.4, margin: '0 0 14px 0' }}>
+              No remote database connection configured. Real login is disabled. You can explore full features using local browser storage.
+            </p>
 
-          <div className="form-group">
-            <label className="form-label">Secure Password</label>
-            <div className="input-prefix-wrapper" style={{ position: 'relative' }}>
-              <span className="input-prefix"><Lock size={16} /></span>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                className="form-input"
-                required
-                autoComplete="current-password"
-                placeholder="Enter Password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                style={{ paddingRight: '40px' }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: 'absolute',
-                  right: '12px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: '#64748b',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: 2
-                }}
-                title={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
+            <button
+              type="button"
+              className="btn btn-primary btn-block btn-lg"
+              onClick={onEnterDemoMode}
+              style={{
+                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)',
+                fontWeight: 700
+              }}
+            >
+              <Play size={18} />
+              <span>Enter Local Demo Mode</span>
+            </button>
           </div>
-
-          <button
-            type="submit"
-            className="btn btn-primary btn-block btn-lg"
-            style={{ marginTop: '10px' }}
-            disabled={loading}
-          >
-            {loading ? 'Authenticating...' : (
-              <>
-                <span>Sign In to Hub Console</span>
-                <ArrowRight size={18} />
-              </>
+        ) : (
+          <>
+            {error && (
+              <div style={{
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                color: '#991b1b',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <AlertCircle size={16} />
+                <span>{error}</span>
+              </div>
             )}
-          </button>
-        </form>
+
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label className="form-label">Manager Email</label>
+                <div className="input-prefix-wrapper">
+                  <span className="input-prefix"><Mail size={16} /></span>
+                  <input
+                    type="email"
+                    className="form-input"
+                    required
+                    autoComplete="email"
+                    placeholder="manager@ut8hub.in"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Secure Password</label>
+                <div className="input-prefix-wrapper" style={{ position: 'relative' }}>
+                  <span className="input-prefix"><Lock size={16} /></span>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    className="form-input"
+                    required
+                    autoComplete="current-password"
+                    placeholder="Enter Password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    style={{ paddingRight: '40px' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: '#64748b',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: 2
+                    }}
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary btn-block btn-lg"
+                style={{ marginTop: '10px' }}
+                disabled={loading}
+              >
+                {loading ? 'Authenticating...' : (
+                  <>
+                    <span>Sign In via Supabase Auth</span>
+                    <ArrowRight size={18} />
+                  </>
+                )}
+              </button>
+            </form>
+          </>
+        )}
 
         <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #f1f5f9', textAlign: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.76rem', color: '#64748b' }}>
             <ShieldCheck size={14} color="#10b981" />
-            <span>256-Bit Encrypted & Salted Cryptographic Authentication</span>
+            <span>Hardened Row-Level Security (RLS) Active</span>
           </div>
           {isSupabaseConfigured && (
             <p style={{ fontSize: '0.72rem', color: '#059669', marginTop: '4px' }}>
-              ⚡ Supabase Postgres RLS Security Active
+              ⚡ Supabase Postgres Authentication Connected
             </p>
           )}
         </div>

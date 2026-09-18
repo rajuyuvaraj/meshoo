@@ -14,6 +14,7 @@ import {
   CreditCard
 } from 'lucide-react';
 import { formatINR, formatDate } from '../../utils/formatters';
+import { HUB_CONFIG } from '../../config/hubSettings';
 
 export default function ReceiptViewerModal({ deposit, onClose }) {
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -349,10 +350,10 @@ export default function ReceiptViewerModal({ deposit, onClose }) {
           <div>
             <div style={{ color: '#64748b', fontSize: '0.7rem', fontWeight: 600 }}>BANK & LOCATION</div>
             <div style={{ fontWeight: 600, color: '#334155' }}>
-              {deposit.deposit_bank || 'State Bank of India'}
+              {deposit.deposit_bank || HUB_CONFIG.DEFAULT_DEPOSIT_BANK}
             </div>
             <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
-              {deposit.hub_location || 'UT8 HUB'}
+              {deposit.hub_location || HUB_CONFIG.HUB_NAME}
             </div>
           </div>
 

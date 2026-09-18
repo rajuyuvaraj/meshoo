@@ -2,7 +2,7 @@ import React from 'react';
 import { Truck, LogOut, Download, Moon, Sun } from 'lucide-react';
 
 export default function Header({ user, onLogout, onExportAll, theme = 'light', onToggleTheme }) {
-  const managerDisplayName = user?.name || user?.username || 'Vaibhav';
+  const managerDisplayName = user?.name || user?.username || 'Manager';
   const managerInitials = managerDisplayName.substring(0, 2).toUpperCase();
   const isDark = theme === 'dark';
 

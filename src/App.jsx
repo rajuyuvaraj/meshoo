@@ -8,7 +8,9 @@ import RecordDepositModal from './components/Remittance/RecordDepositModal';
 import BulkUploadModal from './components/Common/BulkUploadModal';
 import { dataService } from './services/dataService';
 import { exportAllDatesExcel } from './utils/excelExport';
-import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { isSupabaseConfigured } from './services/supabaseClient';
+import { HUB_CONFIG } from './config/hubSettings';
+import { CheckCircle2, AlertCircle, Database, ShieldAlert } from 'lucide-react';
 
 export default function App() {
   // Theme state ('light' | 'dark')
@@ -73,7 +75,7 @@ export default function App() {
     setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4000);
+    }, type === 'error' ? 10000 : 4000);
   };
 
   // 1. Initial auth check
@@ -119,16 +121,33 @@ export default function App() {
   }, [user, loadData]);
 
   // Auth actions
-  const handleLogin = async (username, password) => {
-    const loggedInUser = await dataService.login(username, password);
+  const handleLogin = async (email, password) => {
+    const loggedInUser = await dataService.login(email, password);
     setUser(loggedInUser);
     addToast(`Welcome, ${loggedInUser.name || 'Hub Manager'}!`);
+
+    // Verify the user has data access (must be in allowed_managers table)
+    try {
+      const authCheck = await dataService.checkAuthorization();
+      if (!authCheck.authorized && !authCheck.isDemo) {
+        console.error('⚠️ Data sync blocked by RLS. Fix:\n' + (authCheck.fixSQL || authCheck.message));
+        addToast(authCheck.message, 'error');
+      }
+    } catch (e) {
+      console.warn('Authorization check error:', e);
+    }
+  };
+
+  const handleEnterDemoMode = async () => {
+    const demoUser = await dataService.enterDemoMode();
+    setUser(demoUser);
+    addToast('Entered Offline Demo Mode (Local Storage Only)');
   };
 
   const handleLogout = async () => {
     await dataService.logout();
     setUser(null);
-    addToast('Signed out of UT8 HUB');
+    addToast(`Signed out of ${HUB_CONFIG.HUB_NAME}`);
   };
 
   // Rider Shift Entry Modal actions
@@ -256,7 +275,12 @@ export default function App() {
   }
 
   if (!user) {
-    return <LoginScreen onLoginSuccess={handleLogin} />;
+    return (
+      <LoginScreen 
+        onLoginSuccess={handleLogin} 
+        onEnterDemoMode={handleEnterDemoMode}
+      />
+    );
   }
 
   const activeDateEntries = selectedDateDetail 
@@ -267,8 +291,33 @@ export default function App() {
     ? remittanceEntries.filter(r => r.entry_date === selectedDateDetail)
     : [];
 
+  const isDemoActive = Boolean(user?.isDemo || !isSupabaseConfigured);
+
   return (
     <div className="app-container" style={{ paddingBottom: '24px' }}>
+      {/* Explicit Offline Demo Mode Banner (Issue #1 requirement) */}
+      {isDemoActive && (
+        <div style={{
+          background: 'linear-gradient(90deg, #b45309 0%, #d97706 100%)',
+          color: '#ffffff',
+          padding: '8px 16px',
+          fontSize: '0.8rem',
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          letterSpacing: '0.01em',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+          position: 'sticky',
+          top: 0,
+          zIndex: 50
+        }}>
+          <Database size={15} />
+          <span>Demo mode — no login required, data is local only (Supabase not connected)</span>
+        </div>
+      )}
+
       {/* Executive Header with Dark Mode Toggle */}
       <Header
         user={user}

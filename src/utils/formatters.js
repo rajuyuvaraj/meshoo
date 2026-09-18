@@ -1,3 +1,5 @@
+import { HUB_CONFIG } from '../config/hubSettings';
+
 /**
  * Indian Rupee and Arithmetic Formatting Utilities
  */
@@ -94,10 +96,13 @@ export const DENOMINATIONS = [
 
 /**
  * Calculate Rider Shift Salary Payout
- * Standard Hub Rule: ₹18 per delivered parcel, less 1% TDS deduction
- * Example: 30 parcels * ₹18 = ₹540; 1% TDS = ₹5.40; Net = ₹534.60
+ * Standard Hub Rule: Configurable parcel rate (default ₹18), less TDS deduction (default 1%)
  */
-export function calculateRiderSalary(deliveredParcels, ratePerParcel = 18, tdsPercent = 1) {
+export function calculateRiderSalary(
+  deliveredParcels, 
+  ratePerParcel = HUB_CONFIG.SALARY_RATE_PER_PARCEL, 
+  tdsPercent = HUB_CONFIG.TDS_DEDUCTION_PERCENT
+) {
   const count = Math.max(0, Number(deliveredParcels) || 0);
   const gross = count * ratePerParcel;
   const tds = (gross * tdsPercent) / 100;

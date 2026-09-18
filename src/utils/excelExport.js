@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { calculateRiderSalary } from './formatters';
+import { HUB_CONFIG } from '../config/hubSettings';
 
 /**
  * Downloads single date Excel sheet
@@ -9,13 +10,13 @@ export function exportSingleDateExcel(dateStr, entries = [], deposits = [], dayS
 
   // 1. Sheet 1: Rider Shift Collections
   const shiftRows = entries.map((entry, index) => {
-    const sal = calculateRiderSalary(entry.total_delivered, 18, 1);
+    const sal = calculateRiderSalary(entry.total_delivered, HUB_CONFIG.SALARY_RATE_PER_PARCEL, HUB_CONFIG.TDS_DEDUCTION_PERCENT);
     return {
       'S.No': index + 1,
       'Shift Date': entry.entry_date,
       'Rider Name': entry.agent_name || 'Rider',
       'Login Account ID': entry.login_account_id || '',
-      'Hub Location': entry.hub_location || 'UT8 HUB',
+      'Hub Location': entry.hub_location || HUB_CONFIG.HUB_NAME,
       'Delivered Parcels': Number(entry.total_delivered) || 0,
       'COD App Target (₹)': Number(entry.reported_cod_cash) || 0,
       'Online UPI Received (₹)': Number(entry.online_received) || 0,
@@ -23,7 +24,7 @@ export function exportSingleDateExcel(dateStr, entries = [], deposits = [], dayS
       'Total Settled (₹)': Number(entry.total_settled) || 0,
       'Variance (₹)': Number(entry.cash_variance) || 0,
       'Audit Status': entry.audit_status || 'Balanced',
-      'Salary Rate (₹)': 18,
+      'Salary Rate (₹)': HUB_CONFIG.SALARY_RATE_PER_PARCEL,
       'Gross Salary (₹)': sal.gross,
       'TDS 1% (₹)': sal.tds,
       'Net Salary Payable (₹)': sal.net,
@@ -83,13 +84,13 @@ export function exportAllDatesExcel(dailyEntries = [], remittanceEntries = []) {
   // 1. Sheet 1: All Rider Shift Reconciliations
   const sortedEntries = [...dailyEntries].sort((a, b) => (a.entry_date < b.entry_date ? 1 : -1));
   const shiftRows = sortedEntries.map((entry, index) => {
-    const sal = calculateRiderSalary(entry.total_delivered, 18, 1);
+    const sal = calculateRiderSalary(entry.total_delivered, HUB_CONFIG.SALARY_RATE_PER_PARCEL, HUB_CONFIG.TDS_DEDUCTION_PERCENT);
     return {
       'S.No': index + 1,
       'Shift Date': entry.entry_date,
       'Rider Name': entry.agent_name || 'Rider',
       'Login Account ID': entry.login_account_id || '',
-      'Hub Location': entry.hub_location || 'UT8 HUB',
+      'Hub Location': entry.hub_location || HUB_CONFIG.HUB_NAME,
       'Delivered Parcels': Number(entry.total_delivered) || 0,
       'COD App Target (₹)': Number(entry.reported_cod_cash) || 0,
       'Online UPI Received (₹)': Number(entry.online_received) || 0,
@@ -97,7 +98,7 @@ export function exportAllDatesExcel(dailyEntries = [], remittanceEntries = []) {
       'Total Settled (₹)': Number(entry.total_settled) || 0,
       'Variance (₹)': Number(entry.cash_variance) || 0,
       'Audit Status': entry.audit_status || 'Balanced',
-      'Salary Rate (₹)': 18,
+      'Salary Rate (₹)': HUB_CONFIG.SALARY_RATE_PER_PARCEL,
       'Gross Salary (₹)': sal.gross,
       'TDS 1% (₹)': sal.tds,
       'Net Salary Payable (₹)': sal.net,

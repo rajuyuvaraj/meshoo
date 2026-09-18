@@ -1,8 +1,8 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { generateInitialDailyEntries, generateInitialRemittanceEntries } from './mockSeedData';
 import { calculateCashTally, getAuditStatus } from '../utils/formatters';
-import { hashString, secureCompare, SECURE_MANAGER_CREDENTIALS } from '../utils/security';
 import { saveReceiptToStorage, getReceiptFromStorage, deleteReceiptFromStorage } from '../utils/fileUtils';
+import { HUB_CONFIG } from '../config/hubSettings';
 
 const STORAGE_KEYS = {
   DAILY_ENTRIES: 'vns_hub_daily_entries',
@@ -10,69 +10,7 @@ const STORAGE_KEYS = {
   KNOWN_AGENTS: 'vns_hub_known_agents',
   AUTH_SESSION: 'vns_hub_secure_session',
   SALARY_STATUS_MAP: 'vns_hub_salary_status_map',
-  DELETED_REMITTANCES: 'vns_hub_deleted_remittances',
-  DELETED_DAILY_ENTRIES: 'vns_hub_deleted_daily_entries',
 };
-
-function getDeletedRemittanceSet() {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.DELETED_REMITTANCES) || '[]'));
-  } catch {
-    return new Set();
-  }
-}
-
-function recordDeletedRemittance(id, entryDate) {
-  try {
-    const set = getDeletedRemittanceSet();
-    if (id) set.add(String(id));
-    if (entryDate) set.add(String(entryDate));
-    localStorage.setItem(STORAGE_KEYS.DELETED_REMITTANCES, JSON.stringify(Array.from(set)));
-  } catch (e) {
-    console.warn('Failed to record deleted remittance tombstone', e);
-  }
-}
-
-function unmarkDeletedRemittance(id, entryDate) {
-  try {
-    const set = getDeletedRemittanceSet();
-    if (id) set.delete(String(id));
-    if (entryDate) set.delete(String(entryDate));
-    localStorage.setItem(STORAGE_KEYS.DELETED_REMITTANCES, JSON.stringify(Array.from(set)));
-  } catch (e) {}
-}
-
-function getDeletedDailyEntriesSet() {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.DELETED_DAILY_ENTRIES) || '[]'));
-  } catch {
-    return new Set();
-  }
-}
-
-function recordDeletedDailyEntry(id, agentName, entryDate) {
-  try {
-    const set = getDeletedDailyEntriesSet();
-    if (id) set.add(String(id));
-    if (agentName && entryDate) {
-      set.add(`${agentName.trim().toLowerCase()}_${entryDate}`);
-    }
-    localStorage.setItem(STORAGE_KEYS.DELETED_DAILY_ENTRIES, JSON.stringify(Array.from(set)));
-  } catch (e) {
-    console.warn('Failed to record deleted daily entry tombstone', e);
-  }
-}
-
-function unmarkDeletedDailyEntry(id, agentName, entryDate) {
-  try {
-    const set = getDeletedDailyEntriesSet();
-    if (id) set.delete(String(id));
-    if (agentName && entryDate) {
-      set.delete(`${agentName.trim().toLowerCase()}_${entryDate}`);
-    }
-    localStorage.setItem(STORAGE_KEYS.DELETED_DAILY_ENTRIES, JSON.stringify(Array.from(set)));
-  } catch (e) {}
-}
 
 function getSalaryStatusMap() {
   try {
@@ -112,6 +50,19 @@ function resolveSalaryPaid(item) {
   return false;
 }
 
+// Convert Base64 Data URL to a Blob for Supabase Storage uploads
+function dataUrlToBlob(dataUrl) {
+  const arr = dataUrl.split(',');
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new Blob([u8arr], { type: mime });
+}
+
 // Default initial agent suggestions for autocomplete
 const INITIAL_KNOWN_AGENTS = [
   { name: 'Rahul Sharma', login_account_id: 'LOG-VNS-101' },
@@ -139,31 +90,34 @@ ensureLocalStorageInitialized();
 
 export const dataService = {
   // --------------------------------------------------------------------------
-  // AUTHENTICATION & SECURITY
+  // AUTHENTICATION & SECURITY (Issues #1, #3 & Demo Mode)
   // --------------------------------------------------------------------------
   async getCurrentUser() {
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (session?.user && !error) {
           return {
             id: session.user.id,
             email: session.user.email,
-            username: session.user.email.split('@')[0],
+            username: session.user.email ? session.user.email.split('@')[0] : 'Manager',
             role: 'Hub Manager',
-            hub: 'UT8 HUB (UT8-01)',
-            name: SECURE_MANAGER_CREDENTIALS.displayName,
+            hub: HUB_CONFIG.HUB_DISPLAY_TITLE,
+            name: session.user.user_metadata?.name || session.user.email.split('@')[0],
+            isDemo: false,
           };
         }
       } catch (err) {
         console.warn('Supabase session check error:', err);
       }
+      return null;
     }
+
+    // When Supabase is not configured, check if local demo session is active
     const saved = localStorage.getItem(STORAGE_KEYS.AUTH_SESSION);
     if (!saved) return null;
     try {
       const parsed = JSON.parse(saved);
-      // Validate session expiry (e.g. 7 days)
       if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
         localStorage.removeItem(STORAGE_KEYS.AUTH_SESSION);
         return null;
@@ -175,87 +129,67 @@ export const dataService = {
   },
 
   async login(usernameOrEmail, password) {
-    const cleanUser = (usernameOrEmail || '').trim().toLowerCase();
+    const cleanUser = (usernameOrEmail || '').trim();
     const cleanPass = (password || '').trim();
 
     if (!cleanUser || !cleanPass) {
-      throw new Error('Please enter both username and password.');
+      throw new Error('Please enter both username/email and password.');
     }
 
-    // 1. Verify Manager Credentials ('vaibhav' / 'vaibhav@kan')
-    const usernamePart = cleanUser.includes('@') ? cleanUser.split('@')[0] : cleanUser;
-    const inputUserHash = await hashString(usernamePart);
-    const inputPassHash = await hashString(cleanPass);
-
-    const isManagerUser = secureCompare(inputUserHash, SECURE_MANAGER_CREDENTIALS.usernameHash) || usernamePart === 'vaibhav';
-    const isManagerPass = secureCompare(inputPassHash, SECURE_MANAGER_CREDENTIALS.passwordHash) || cleanPass === 'vaibhav@kan';
-
-    if (isManagerUser && isManagerPass) {
-      const user = {
-        id: 'mgr-vns-vaibhav',
-        email: 'vaibhav@varanasi-hub.in',
-        username: 'vaibhav',
-        role: 'Hub Manager',
-        hub: 'UT8 HUB (UT8-01)',
-        name: 'Vaibhav',
-      };
-
-      // If Supabase Auth is available, try to sign in or auto-provision in background
-      if (isSupabaseConfigured && supabase) {
-        const email = 'vaibhav@varanasi-hub.meesho.in';
-        try {
-          const { error: signInError } = await supabase.auth.signInWithPassword({
-            email,
-            password: cleanPass,
-          });
-          if (signInError) {
-            // Attempt auto-signup on Supabase for this manager
-            await supabase.auth.signUp({
-              email,
-              password: cleanPass,
-            });
-          }
-        } catch (e) {
-          console.warn('Supabase auth sync note:', e.message);
-        }
-      }
-
-      const session = {
-        user,
-        token: `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
-      };
-      localStorage.setItem(STORAGE_KEYS.AUTH_SESSION, JSON.stringify(session));
-      return user;
+    // Require configured Supabase instance for real login (Issue #1)
+    if (!isSupabaseConfigured || !supabase) {
+      throw new Error('Supabase is not configured. Please use "Enter Local Demo Mode" for offline development.');
     }
 
-    // 2. Otherwise check Supabase Auth for other registered accounts
-    if (isSupabaseConfigured && supabase) {
-      const email = cleanUser.includes('@') ? cleanUser : `${cleanUser}@varanasi-hub.meesho.in`;
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: cleanPass,
-      });
-      if (!error && data?.user) {
-        const user = {
-          id: data.user.id,
-          email: data.user.email,
-          username: cleanUser,
-          role: 'Hub Manager',
-          hub: 'UT8 HUB (UT8-01)',
-          name: SECURE_MANAGER_CREDENTIALS.displayName,
-        };
-        const session = {
-          user,
-          token: `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
-        };
-        localStorage.setItem(STORAGE_KEYS.AUTH_SESSION, JSON.stringify(session));
-        return user;
-      }
+    const email = cleanUser.includes('@') ? cleanUser : `${cleanUser}@${HUB_CONFIG.HUB_NAME.toLowerCase().replace(/\s+/g, '')}.in`;
+
+    // Strictly authenticate via Supabase Auth without hardcoded bypasses (Issue #1 & #3)
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: cleanPass,
+    });
+
+    if (error || !data?.user) {
+      throw new Error(error?.message || 'Invalid email or password.');
     }
 
-    throw new Error('Invalid credentials. Please check your manager username and password.');
+    const user = {
+      id: data.user.id,
+      email: data.user.email,
+      username: data.user.email ? data.user.email.split('@')[0] : cleanUser,
+      role: 'Hub Manager',
+      hub: HUB_CONFIG.HUB_DISPLAY_TITLE,
+      name: data.user.user_metadata?.name || data.user.email.split('@')[0],
+      isDemo: false,
+    };
+
+    const session = {
+      user,
+      token: data.session?.access_token || `sess_${Date.now()}`,
+      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    };
+    localStorage.setItem(STORAGE_KEYS.AUTH_SESSION, JSON.stringify(session));
+    return user;
+  },
+
+  async enterDemoMode() {
+    const demoUser = {
+      id: 'demo-local-manager',
+      email: 'demo@local.hub',
+      username: 'demomanager',
+      role: 'Demo Mode (Offline)',
+      hub: `${HUB_CONFIG.HUB_NAME} (Offline Demo)`,
+      name: 'Demo Hub Manager',
+      isDemo: true,
+    };
+
+    const session = {
+      user: demoUser,
+      token: `demo_sess_${Date.now()}`,
+      expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+    };
+    localStorage.setItem(STORAGE_KEYS.AUTH_SESSION, JSON.stringify(session));
+    return demoUser;
   },
 
   async logout() {
@@ -268,6 +202,44 @@ export const dataService = {
     }
     localStorage.removeItem(STORAGE_KEYS.AUTH_SESSION);
     return true;
+  },
+
+  /**
+   * Check if the logged-in user is in the allowed_managers table.
+   * Without this, RLS silently blocks all data operations and each
+   * device ends up with its own isolated localStorage data.
+   */
+  async checkAuthorization() {
+    if (!isSupabaseConfigured || !supabase) {
+      return { authorized: true, isDemo: true };
+    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        return { authorized: false, isDemo: false, message: 'No active Supabase session.' };
+      }
+      const { data, error } = await supabase
+        .from('allowed_managers')
+        .select('user_id, role, hub_assigned')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      if (error) {
+        return { authorized: false, isDemo: false, message: `Authorization check failed: ${error.message}` };
+      }
+      if (!data) {
+        const fixSQL = `INSERT INTO allowed_managers (user_id, email) VALUES ('${session.user.id}', '${session.user.email}');`;
+        return {
+          authorized: false,
+          isDemo: false,
+          fixSQL,
+          message: `Account "${session.user.email}" is not in allowed_managers — data will NOT sync across devices. Run this in Supabase SQL Editor: ${fixSQL}`,
+        };
+      }
+      return { authorized: true, isDemo: false, role: data.role, hub: data.hub_assigned };
+    } catch (err) {
+      return { authorized: false, isDemo: false, message: `Authorization check error: ${err.message}` };
+    }
   },
 
   // --------------------------------------------------------------------------
@@ -306,57 +278,71 @@ export const dataService = {
   },
 
   // --------------------------------------------------------------------------
-  // DAILY DELIVERY ENTRIES
+  // DAILY DELIVERY ENTRIES (Issue #10: Pagination & Date Filters)
   // --------------------------------------------------------------------------
-  async getDailyEntries({ monthStr = null, dateStr = null } = {}) {
-    const deletedDailySet = getDeletedDailyEntriesSet();
-
+  async getDailyEntries({ 
+    monthStr = null, 
+    dateStr = null, 
+    startDate = null, 
+    endDate = null,
+    limit = HUB_CONFIG.DEFAULT_PAGE_SIZE,
+    offset = 0 
+  } = {}) {
     if (isSupabaseConfigured && supabase) {
-      let query = supabase.from('daily_entries').select('*').order('entry_date', { ascending: false });
+      try {
+        let query = supabase.from('daily_entries').select('*').order('entry_date', { ascending: false });
 
-      if (dateStr) {
-        query = query.eq('entry_date', dateStr);
-      } else if (monthStr) {
-        const start = `${monthStr}-01`;
-        const end = `${monthStr}-31`;
-        query = query.gte('entry_date', start).lte('entry_date', end);
-      }
+        if (dateStr) {
+          query = query.eq('entry_date', dateStr);
+        } else if (startDate && endDate) {
+          query = query.gte('entry_date', startDate).lte('entry_date', endDate);
+        } else if (monthStr) {
+          const start = `${monthStr}-01`;
+          const end = `${monthStr}-31`;
+          query = query.gte('entry_date', start).lte('entry_date', end);
+        }
 
-      const { data, error } = await query;
-      if (!error && Array.isArray(data)) {
-        const valid = data.filter(row => {
-          if (row.id && deletedDailySet.has(String(row.id))) return false;
-          if (row.agent_name && row.entry_date && deletedDailySet.has(`${row.agent_name.trim().toLowerCase()}_${row.entry_date}`)) return false;
-          return true;
-        });
+        if (limit) {
+          query = query.range(offset, offset + limit - 1);
+        }
 
-        return valid.map(row => ({
-          ...row,
-          salary_paid: resolveSalaryPaid(row),
-        }));
+        const { data, error } = await query;
+        if (!error && Array.isArray(data)) {
+          return data.map(row => ({
+            ...row,
+            salary_paid: resolveSalaryPaid(row),
+          }));
+        }
+        if (error) {
+          console.warn('Supabase getDailyEntries error:', error.message);
+        }
+        return []; // Supabase configured but query failed — don't use stale localStorage
+      } catch (err) {
+        console.warn('Supabase getDailyEntries exception:', err);
+        return []; // Don't silently fall back to per-device localStorage
       }
     }
 
+    // LocalStorage path — runs only in demo mode (Supabase not configured)
     ensureLocalStorageInitialized();
     const entries = JSON.parse(localStorage.getItem(STORAGE_KEYS.DAILY_ENTRIES) || '[]');
 
     const filtered = entries.filter(e => {
-      if (e.id && deletedDailySet.has(String(e.id))) return false;
-      if (e.agent_name && e.entry_date && deletedDailySet.has(`${e.agent_name.trim().toLowerCase()}_${e.entry_date}`)) return false;
       if (dateStr && e.entry_date !== dateStr) return false;
+      if (startDate && endDate && (e.entry_date < startDate || e.entry_date > endDate)) return false;
       if (monthStr && !e.entry_date.startsWith(monthStr)) return false;
       return true;
     });
 
-    return filtered.map(row => ({
+    const paginated = limit ? filtered.slice(offset, offset + limit) : filtered;
+
+    return paginated.map(row => ({
       ...row,
       salary_paid: resolveSalaryPaid(row),
     })).sort((a, b) => (a.entry_date < b.entry_date ? 1 : -1));
   },
 
   async saveDailyEntry(entry) {
-    unmarkDeletedDailyEntry(entry.id, entry.agent_name, entry.entry_date);
-
     const actualCashTally = entry.cash_collected_fe !== undefined && entry.cash_collected_fe !== null && entry.cash_collected_fe !== ''
       ? Number(entry.cash_collected_fe) || 0
       : (entry.actual_cash_tally !== undefined && entry.actual_cash_tally !== null && entry.actual_cash_tally !== ''
@@ -374,7 +360,7 @@ export const dataService = {
       agent_name: entry.agent_name?.trim() || 'Rider',
       login_account_id: entry.login_account_id?.trim() || '',
       entry_date: entry.entry_date,
-      hub_location: entry.hub_location || 'UT8 HUB',
+      hub_location: entry.hub_location || HUB_CONFIG.HUB_NAME,
       total_delivered: Number(entry.total_delivered) || 0,
       cod_orders: Number(entry.cod_orders) || 0,
       online_received: onlineReceived,
@@ -397,27 +383,7 @@ export const dataService = {
     await this.recordKnownAgent(payload.agent_name, payload.login_account_id);
     setSalaryStatusRecord(entry.id, payload.agent_name, payload.entry_date, isSalaryPaid);
 
-    // Also always update LocalStorage mirror
-    ensureLocalStorageInitialized();
-    const localEntries = JSON.parse(localStorage.getItem(STORAGE_KEYS.DAILY_ENTRIES) || '[]');
-    let localResultEntry;
-    if (entry.id) {
-      const idx = localEntries.findIndex(e => e.id === entry.id || (e.agent_name === payload.agent_name && e.entry_date === payload.entry_date));
-      if (idx >= 0) {
-        localEntries[idx] = { ...localEntries[idx], ...payload, id: entry.id };
-        localResultEntry = localEntries[idx];
-      }
-    }
-    if (!localResultEntry) {
-      localResultEntry = {
-        id: entry.id || `de-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-        ...payload,
-        created_at: new Date().toISOString(),
-      };
-      localEntries.push(localResultEntry);
-    }
-    localStorage.setItem(STORAGE_KEYS.DAILY_ENTRIES, JSON.stringify(localEntries));
-
+    // Save to Supabase first if configured
     if (isSupabaseConfigured && supabase) {
       const executeSupabase = async (dataPayload) => {
         if (entry.id && !entry.id.startsWith('de-')) {
@@ -445,9 +411,21 @@ export const dataService = {
         if (res?.id) {
           setSalaryStatusRecord(res.id, payload.agent_name, payload.entry_date, isSalaryPaid);
         }
+        
+        // Also update local cache
+        ensureLocalStorageInitialized();
+        const localEntries = JSON.parse(localStorage.getItem(STORAGE_KEYS.DAILY_ENTRIES) || '[]');
+        const idx = localEntries.findIndex(e => e.id === res.id || (e.agent_name === payload.agent_name && e.entry_date === payload.entry_date));
+        if (idx >= 0) {
+          localEntries[idx] = { ...localEntries[idx], ...res, salary_paid: isSalaryPaid };
+        } else {
+          localEntries.unshift({ ...res, salary_paid: isSalaryPaid });
+        }
+        localStorage.setItem(STORAGE_KEYS.DAILY_ENTRIES, JSON.stringify(localEntries));
+
         return { ...res, salary_paid: isSalaryPaid };
       } catch (err) {
-        // Fallback without salary_paid if column doesn't exist on remote table
+        // Fallback without salary_paid column if not on remote table
         if (err?.message?.includes('salary_paid') || err?.code === '42703' || err?.message?.includes('column')) {
           const { salary_paid, ...fallbackPayload } = payload;
           const res = await executeSupabase(fallbackPayload);
@@ -460,11 +438,48 @@ export const dataService = {
       }
     }
 
+    // LocalStorage fallback for Demo Mode
+    ensureLocalStorageInitialized();
+    const localEntries = JSON.parse(localStorage.getItem(STORAGE_KEYS.DAILY_ENTRIES) || '[]');
+    let localResultEntry;
+    if (entry.id) {
+      const idx = localEntries.findIndex(e => e.id === entry.id || (e.agent_name === payload.agent_name && e.entry_date === payload.entry_date));
+      if (idx >= 0) {
+        localEntries[idx] = { ...localEntries[idx], ...payload, id: entry.id };
+        localResultEntry = localEntries[idx];
+      }
+    }
+    if (!localResultEntry) {
+      localResultEntry = {
+        id: entry.id || `de-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        ...payload,
+        created_at: new Date().toISOString(),
+      };
+      localEntries.push(localResultEntry);
+    }
+    localStorage.setItem(STORAGE_KEYS.DAILY_ENTRIES, JSON.stringify(localEntries));
+
     return localResultEntry;
   },
 
+  // Issue #7: Reliable Remote Delete
   async deleteDailyEntry(id, agentName = null, entryDate = null) {
-    recordDeletedDailyEntry(id, agentName, entryDate);
+    if (isSupabaseConfigured && supabase) {
+      let query = supabase.from('daily_entries').delete();
+      if (id && !id.startsWith('de-')) {
+        query = query.eq('id', id);
+      } else if (agentName && entryDate) {
+        query = query.match({ agent_name: agentName, entry_date: entryDate });
+      }
+
+      const { error } = await query;
+      if (error) {
+        console.error('Supabase daily entry delete error:', error);
+        throw new Error(`Failed to delete record from server: ${error.message}`);
+      }
+    }
+
+    // Only clean local state once remote delete succeeded or in local demo mode
     ensureLocalStorageInitialized();
     const entries = JSON.parse(localStorage.getItem(STORAGE_KEYS.DAILY_ENTRIES) || '[]');
     const remaining = entries.filter(e => {
@@ -474,17 +489,6 @@ export const dataService = {
     });
     localStorage.setItem(STORAGE_KEYS.DAILY_ENTRIES, JSON.stringify(remaining));
 
-    if (isSupabaseConfigured && supabase) {
-      try {
-        if (id && !id.startsWith('de-')) {
-          await supabase.from('daily_entries').delete().eq('id', id);
-        } else if (agentName && entryDate) {
-          await supabase.from('daily_entries').delete().match({ agent_name: agentName, entry_date: entryDate });
-        }
-      } catch (err) {
-        console.error('Supabase daily entry delete error:', err);
-      }
-    }
     return true;
   },
 
@@ -506,7 +510,7 @@ export const dataService = {
         agent_name: item.agent_name || 'Rider',
         login_account_id: item.login_account_id || '',
         entry_date: item.entry_date || new Date().toISOString().split('T')[0],
-        hub_location: item.hub_location || 'UT8 HUB',
+        hub_location: item.hub_location || HUB_CONFIG.HUB_NAME,
         total_delivered: Number(item.total_delivered) || 0,
         cod_orders: Number(item.cod_orders) || 0,
         online_received: onlineReceived,
@@ -526,7 +530,6 @@ export const dataService = {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
-      unmarkDeletedDailyEntry(newEntry.id, newEntry.agent_name, newEntry.entry_date);
       existing.push(newEntry);
       added.push(newEntry);
       await this.recordKnownAgent(newEntry.agent_name, newEntry.login_account_id);
@@ -537,43 +540,54 @@ export const dataService = {
   },
 
   // --------------------------------------------------------------------------
-  // BANK REMITTANCE ENTRIES
+  // BANK REMITTANCE ENTRIES (Issues #6, #7, #10)
   // --------------------------------------------------------------------------
-  async getRemittanceEntries({ monthStr = null, dateStr = null } = {}) {
-    ensureLocalStorageInitialized();
-    const deletedSet = getDeletedRemittanceSet();
-    let localRecords = JSON.parse(localStorage.getItem(STORAGE_KEYS.REMITTANCE_ENTRIES) || '[]');
-    localRecords = localRecords.filter(r => !deletedSet.has(String(r.id)) && !deletedSet.has(String(r.entry_date)));
-    let records = [...localRecords];
+  async getRemittanceEntries({ 
+    monthStr = null, 
+    dateStr = null, 
+    startDate = null, 
+    endDate = null,
+    limit = HUB_CONFIG.DEFAULT_PAGE_SIZE,
+    offset = 0 
+  } = {}) {
+    let records = [];
 
     if (isSupabaseConfigured && supabase) {
       try {
         let query = supabase.from('remittance_entries').select('*').order('entry_date', { ascending: false });
-        if (dateStr) query = query.eq('entry_date', dateStr);
+        if (dateStr) {
+          query = query.eq('entry_date', dateStr);
+        } else if (startDate && endDate) {
+          query = query.gte('entry_date', startDate).lte('entry_date', endDate);
+        } else if (monthStr) {
+          query = query.gte('entry_date', `${monthStr}-01`).lte('entry_date', `${monthStr}-31`);
+        }
+
+        if (limit) {
+          query = query.range(offset, offset + limit - 1);
+        }
+
         const { data, error } = await query;
         if (!error && Array.isArray(data)) {
-          // Filter remote data against deletedSet
-          const validRemote = data.filter(r => !deletedSet.has(String(r.id)) && !deletedSet.has(String(r.entry_date)));
-          const dateMap = new Map();
-          validRemote.forEach(r => dateMap.set(r.entry_date, r));
-          localRecords.forEach(l => {
-            const remote = dateMap.get(l.entry_date);
-            if (remote) {
-              dateMap.set(l.entry_date, {
-                ...remote,
-                ...l,
-                receipt_image: l.receipt_image || remote.receipt_image,
-                receipt_filename: l.receipt_filename || remote.receipt_filename,
-              });
-            } else {
-              dateMap.set(l.entry_date, l);
-            }
-          });
-          records = Array.from(dateMap.values());
+          records = data;
+        } else if (error) {
+          console.warn('Supabase fetch remittance warning:', error.message);
         }
       } catch (err) {
-        console.warn('Supabase fetch remittance note:', err);
+        console.warn('Supabase fetch remittance exception:', err);
       }
+    }
+
+    if (!isSupabaseConfigured && records.length === 0) {
+      ensureLocalStorageInitialized();
+      const localRecords = JSON.parse(localStorage.getItem(STORAGE_KEYS.REMITTANCE_ENTRIES) || '[]');
+      const filtered = localRecords.filter(r => {
+        if (dateStr && r.entry_date !== dateStr) return false;
+        if (startDate && endDate && (r.entry_date < startDate || r.entry_date > endDate)) return false;
+        if (monthStr && !r.entry_date.startsWith(monthStr)) return false;
+        return true;
+      });
+      records = limit ? filtered.slice(offset, offset + limit) : filtered;
     }
 
     // Merge with IndexedDB & memory receipt data if image isn't already populated
@@ -594,28 +608,51 @@ export const dataService = {
       return r;
     }));
 
-    return enriched.filter(r => {
-      if (dateStr && r.entry_date !== dateStr) return false;
-      if (monthStr && !r.entry_date.startsWith(monthStr)) return false;
-      return true;
-    }).sort((a, b) => (a.entry_date < b.entry_date ? 1 : -1));
+    return enriched.sort((a, b) => (a.entry_date < b.entry_date ? 1 : -1));
   },
 
+  // Issue #6: Upload receipts to Supabase Storage Bucket
   async saveRemittanceEntry(remittanceData) {
-    unmarkDeletedRemittance(remittanceData.id, remittanceData.entry_date);
+    let receiptUrl = remittanceData.receipt_image;
+    const filename = remittanceData.receipt_filename || `deposit_${remittanceData.entry_date}.jpg`;
+
+    // 1. If Supabase is configured and image is Data URL, upload to Supabase Storage bucket
+    if (isSupabaseConfigured && supabase && receiptUrl && receiptUrl.startsWith('data:')) {
+      try {
+        const blob = dataUrlToBlob(receiptUrl);
+        const storagePath = `receipts/${remittanceData.entry_date}_${Date.now()}.jpg`;
+        const { error: uploadError } = await supabase.storage
+          .from(HUB_CONFIG.STORAGE_RECEIPTS_BUCKET)
+          .upload(storagePath, blob, { contentType: 'image/jpeg', upsert: true });
+
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage
+            .from(HUB_CONFIG.STORAGE_RECEIPTS_BUCKET)
+            .getPublicUrl(storagePath);
+
+          if (publicUrl) {
+            receiptUrl = publicUrl;
+          }
+        } else {
+          console.warn('Supabase storage upload notice, falling back to database column:', uploadError.message);
+        }
+      } catch (storageErr) {
+        console.warn('Storage upload exception:', storageErr);
+      }
+    }
 
     const payload = {
       entry_date: remittanceData.entry_date,
-      hub_location: remittanceData.hub_location || 'UT8 HUB',
-      deposit_bank: remittanceData.deposit_bank || 'State Bank of India',
-      deposit_branch: remittanceData.deposit_branch || 'Varanasi Main Branch (Cantt)',
+      hub_location: remittanceData.hub_location || HUB_CONFIG.HUB_NAME,
+      deposit_bank: remittanceData.deposit_bank || HUB_CONFIG.DEFAULT_DEPOSIT_BANK,
+      deposit_branch: remittanceData.deposit_branch || HUB_CONFIG.DEFAULT_DEPOSIT_BRANCH,
       cash_challan_no: remittanceData.cash_challan_no || '',
       cash_deposited: Number(remittanceData.cash_deposited) || 0,
       bank_utr_ref_no: remittanceData.bank_utr_ref_no || '',
       online_remitted: Number(remittanceData.online_remitted) || 0,
-      receipt_image: remittanceData.receipt_image || null,
-      receipt_filename: remittanceData.receipt_filename || '',
-      area_manager_name: remittanceData.area_manager_name || 'Rajesh Kumar (AM)',
+      receipt_image: receiptUrl || null,
+      receipt_filename: filename,
+      area_manager_name: remittanceData.area_manager_name || HUB_CONFIG.DEFAULT_AREA_MANAGER,
       manager_approval_status: remittanceData.manager_approval_status || 'Approved & Reconciled',
       signoff_date: remittanceData.signoff_date || remittanceData.entry_date,
       remittance_audit_status: remittanceData.remittance_audit_status || 'Verified • Bank Confirmed',
@@ -624,19 +661,42 @@ export const dataService = {
 
     const recordId = remittanceData.id || `rem-${Date.now()}`;
 
-    // 1. Save receipt to IndexedDB + memory storage
-    if (payload.receipt_image) {
+    // Cache receipt to IndexedDB + memory storage for offline speed
+    if (remittanceData.receipt_image) {
       await saveReceiptToStorage(payload.entry_date, {
-        dataUrl: payload.receipt_image,
-        filename: payload.receipt_filename || `deposit_${payload.entry_date}.jpg`,
+        dataUrl: remittanceData.receipt_image,
+        filename,
       });
       await saveReceiptToStorage(recordId, {
-        dataUrl: payload.receipt_image,
-        filename: payload.receipt_filename || `deposit_${payload.entry_date}.jpg`,
+        dataUrl: remittanceData.receipt_image,
+        filename,
       });
     }
 
-    // 2. Persist in LocalStorage
+    // Sync to Supabase if configured — errors must surface, not silently fall back
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase
+        .from('remittance_entries')
+        .upsert([payload], { onConflict: 'entry_date' })
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to save deposit to server: ${error.message}`);
+      }
+
+      // Update local cache mirror
+      ensureLocalStorageInitialized();
+      const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.REMITTANCE_ENTRIES) || '[]');
+      const idx = list.findIndex(r => r.entry_date === payload.entry_date);
+      if (idx >= 0) list[idx] = data;
+      else list.unshift(data);
+      localStorage.setItem(STORAGE_KEYS.REMITTANCE_ENTRIES, JSON.stringify(list));
+
+      return { ...data, receipt_image: payload.receipt_image, receipt_filename: payload.receipt_filename };
+    }
+
+    // Persist in LocalStorage — Demo mode only (Supabase not configured)
     ensureLocalStorageInitialized();
     const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.REMITTANCE_ENTRIES) || '[]');
     const idx = list.findIndex(r => r.entry_date === payload.entry_date || (remittanceData.id && r.id === remittanceData.id));
@@ -656,51 +716,33 @@ export const dataService = {
     try {
       localStorage.setItem(STORAGE_KEYS.REMITTANCE_ENTRIES, JSON.stringify(list));
     } catch (quotaErr) {
-      console.warn('localStorage quota note, keeping receipt in IndexedDB:', quotaErr);
-      const strippedList = list.map(item => ({ ...item, receipt_image: null }));
-      try {
-        localStorage.setItem(STORAGE_KEYS.REMITTANCE_ENTRIES, JSON.stringify(strippedList));
-      } catch (e) {}
-    }
-
-    // 3. Sync to Supabase if configured
-    if (isSupabaseConfigured && supabase) {
-      try {
-        const { data, error } = await supabase
-          .from('remittance_entries')
-          .upsert([payload], { onConflict: 'entry_date' })
-          .select()
-          .single();
-
-        if (!error && data) {
-          return { ...data, receipt_image: payload.receipt_image, receipt_filename: payload.receipt_filename };
-        }
-
-        // If error (e.g. column receipt_image missing), fallback without receipt columns
-        if (error) {
-          console.warn('Supabase upsert with receipt columns note, retrying fallback:', error.message);
-          const { receipt_image, receipt_filename, ...fallbackPayload } = payload;
-          const { data: fallbackData, error: fallbackErr } = await supabase
-            .from('remittance_entries')
-            .upsert([fallbackPayload], { onConflict: 'entry_date' })
-            .select()
-            .single();
-
-          if (!fallbackErr && fallbackData) {
-            return { ...fallbackData, receipt_image: payload.receipt_image, receipt_filename: payload.receipt_filename };
-          }
-        }
-      } catch (err) {
-        console.warn('Supabase remittance write exception:', err);
-      }
+      console.warn('localStorage quota note, receipt preserved in IndexedDB:', quotaErr);
     }
 
     return localResult;
   },
 
+  // Issue #7: Reliable Remote Delete
   async deleteRemittanceEntry(idOrDate, entryDate = null) {
-    recordDeletedRemittance(idOrDate, entryDate);
+    if (isSupabaseConfigured && supabase) {
+      const isDateString = typeof idOrDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(idOrDate);
+      let query = supabase.from('remittance_entries').delete();
+      if (isDateString) {
+        query = query.eq('entry_date', idOrDate);
+      } else if (entryDate) {
+        query = query.eq('entry_date', entryDate);
+      } else if (idOrDate && !String(idOrDate).startsWith('rem-')) {
+        query = query.eq('id', idOrDate);
+      }
 
+      const { error } = await query;
+      if (error) {
+        console.error('Supabase deleteRemittanceEntry error:', error);
+        throw new Error(`Failed to delete deposit record from server: ${error.message}`);
+      }
+    }
+
+    // Clear local storage and IndexedDB only after remote delete succeeds
     if (idOrDate) {
       await deleteReceiptFromStorage(idOrDate);
     }
@@ -717,26 +759,10 @@ export const dataService = {
     });
     localStorage.setItem(STORAGE_KEYS.REMITTANCE_ENTRIES, JSON.stringify(remaining));
 
-    if (isSupabaseConfigured && supabase) {
-      try {
-        const isDateString = typeof idOrDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(idOrDate);
-        if (isDateString) {
-          await supabase.from('remittance_entries').delete().eq('entry_date', idOrDate);
-        } else if (entryDate) {
-          await supabase.from('remittance_entries').delete().eq('entry_date', entryDate);
-        } else if (idOrDate && !String(idOrDate).startsWith('rem-')) {
-          await supabase.from('remittance_entries').delete().eq('id', idOrDate);
-        }
-      } catch (err) {
-        console.error('Supabase deleteRemittanceEntry error:', err);
-      }
-    }
     return true;
   },
 
   resetToMockData() {
-    localStorage.removeItem(STORAGE_KEYS.DELETED_REMITTANCES);
-    localStorage.removeItem(STORAGE_KEYS.DELETED_DAILY_ENTRIES);
     localStorage.setItem(STORAGE_KEYS.DAILY_ENTRIES, JSON.stringify(generateInitialDailyEntries()));
     localStorage.setItem(STORAGE_KEYS.REMITTANCE_ENTRIES, JSON.stringify(generateInitialRemittanceEntries()));
     localStorage.setItem(STORAGE_KEYS.KNOWN_AGENTS, JSON.stringify(INITIAL_KNOWN_AGENTS));
