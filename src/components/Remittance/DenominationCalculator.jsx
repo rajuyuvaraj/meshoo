@@ -7,7 +7,9 @@ import {
   Banknote, 
   CreditCard, 
   Coins, 
-  Sparkles
+  Sparkles,
+  TrendingUp,
+  FileSpreadsheet
 } from 'lucide-react';
 import { formatINR } from '../../utils/formatters';
 
@@ -18,7 +20,7 @@ const DEFAULT_DENOMINATIONS = [
   { value: 200, label: '₹200 Note', type: 'note', color: '#f59e0b' },
   { value: 100, label: '₹100 Note', type: 'note', color: '#3b82f6' },
   { value: 50, label: '₹50 Note', type: 'note', color: '#10b981' },
-  { value: 20, label: '₹20 Note', type: 'note', color: '#ec4899' },
+  { value: 20, label: '₹20 Note / Coin', type: 'note', color: '#ec4899' },
   { value: 10, label: '₹10 Note / Coin', type: 'note', color: '#8b5cf6' },
   { value: 5, label: '₹5 Coin / Note', type: 'coin', color: '#64748b' },
   { value: 2, label: '₹2 Coin', type: 'coin', color: '#64748b' },
@@ -26,7 +28,7 @@ const DEFAULT_DENOMINATIONS = [
 ];
 
 export default function DenominationCalculator() {
-  // Counts state for each denomination & online amount
+  // Counts state for each denomination, online amount & total collection
   const [counts, setCounts] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -47,17 +49,16 @@ export default function DenominationCalculator() {
       2: '',
       1: '',
       online: '',
+      totalCollection: '',
     };
   });
 
   const [copied, setCopied] = useState(false);
-  const [lastSavedTime, setLastSavedTime] = useState(null);
 
   // Auto-save whenever counts change
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(counts));
-      setLastSavedTime(new Date());
     } catch (e) {
       console.warn('Failed to persist denomination counts', e);
     }
@@ -79,8 +80,16 @@ export default function DenominationCalculator() {
     }));
   };
 
+  const handleCollectionChange = (val) => {
+    const cleanVal = val === '' ? '' : Math.max(0, parseFloat(val) || 0);
+    setCounts(prev => ({
+      ...prev,
+      totalCollection: cleanVal,
+    }));
+  };
+
   const handleReset = () => {
-    if (window.confirm('Clear all denomination counts to zero?')) {
+    if (window.confirm('Clear all denomination counts and calculations?')) {
       const emptyState = {
         500: '',
         200: '',
@@ -92,6 +101,7 @@ export default function DenominationCalculator() {
         2: '',
         1: '',
         online: '',
+        totalCollection: '',
       };
       setCounts(emptyState);
       try {
@@ -100,7 +110,7 @@ export default function DenominationCalculator() {
     }
   };
 
-  // Calculations
+  // Live Calculations (Matching Manager Excel Worksheet)
   const calculations = useMemo(() => {
     let totalPhysicalCash = 0;
     let totalNotesCount = 0;
@@ -121,7 +131,11 @@ export default function DenominationCalculator() {
     });
 
     const onlineAmount = Number(counts.online) || 0;
-    const grandTotal = totalPhysicalCash + onlineAmount;
+    const totalCash = totalPhysicalCash + onlineAmount; // Physical Notes + Online UPI
+    const totalCollection = Number(counts.totalCollection) || 0;
+    
+    // Difference / Pending: Total Cash vs Total Collection
+    const pendingDifference = totalCollection > 0 ? (totalCash - totalCollection) : 0;
 
     return {
       rowDetails,
@@ -129,12 +143,14 @@ export default function DenominationCalculator() {
       totalNotesCount,
       totalCoinsCount,
       onlineAmount,
-      grandTotal,
+      totalCash,
+      totalCollection,
+      pendingDifference,
     };
   }, [counts]);
 
   const handleCopySummary = () => {
-    let summary = `*VARANASI HUB - CASH DENOMINATION TALLY*\n`;
+    let summary = `*VARANASI HUB - CASH & ONLINE DENOMINATION TALLY*\n`;
     summary += `📅 Date: ${new Date().toLocaleDateString('en-IN')}\n\n`;
     calculations.rowDetails.forEach(r => {
       if (r.count > 0) {
@@ -142,11 +158,15 @@ export default function DenominationCalculator() {
       }
     });
     summary += `------------------------------\n`;
-    summary += `💵 Total Physical Cash: ₹${calculations.totalPhysicalCash.toLocaleString('en-IN')}\n`;
+    summary += `💵 Total Physical Cash: ₹${calculations.totalPhysicalCash.toLocaleString('en-IN')} (${calculations.totalNotesCount} notes)\n`;
     if (calculations.onlineAmount > 0) {
       summary += `📱 Online UPI / QR: ₹${calculations.onlineAmount.toLocaleString('en-IN')}\n`;
     }
-    summary += `💰 GRAND TOTAL: ₹${calculations.grandTotal.toLocaleString('en-IN')}\n`;
+    summary += `💰 TOTAL CASH & ONLINE: ₹${calculations.totalCash.toLocaleString('en-IN')}\n`;
+    if (calculations.totalCollection > 0) {
+      summary += `📋 Total Collection Target: ₹${calculations.totalCollection.toLocaleString('en-IN')}\n`;
+      summary += `⚖️ Difference / Pending: ${calculations.pendingDifference >= 0 ? '+' : ''}₹${calculations.pendingDifference.toLocaleString('en-IN')}\n`;
+    }
 
     navigator.clipboard.writeText(summary);
     setCopied(true);
@@ -189,10 +209,10 @@ export default function DenominationCalculator() {
           </div>
           <div>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-              Manager Cash & Denomination Tally Pad
+              Manager Cash & Denomination Tally Pad (SpiceMoney Sheet)
             </h3>
             <p style={{ fontSize: '0.74rem', color: '#64748b', margin: 0 }}>
-              Dedicated cash counting calculator • Auto-saved locally • Does not modify shift data
+              Real-time calculation of notes, coins, online UPI, total cash & pending • Auto-saved locally
             </p>
           </div>
         </div>
@@ -243,10 +263,10 @@ export default function DenominationCalculator() {
       {/* Main 2-Column Layout */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
         gap: '20px'
       }}>
-        {/* Left: Interactive Denomination Table */}
+        {/* Left: Interactive Denomination & Online Table (Matching Excel Sheet) */}
         <div>
           <div style={{
             borderRadius: '12px',
@@ -331,8 +351,21 @@ export default function DenominationCalculator() {
                   </tr>
                 ))}
 
-                {/* Online UPI Amount Input Row */}
-                <tr style={{ background: '#f0fdf4', borderTop: '2px solid #86efac', borderBottom: '1px solid #bbf7d0' }}>
+                {/* Subtotal Physical Notes & Coins */}
+                <tr style={{ background: '#f8fafc', borderTop: '2px solid #cbd5e1', borderBottom: '1px solid #cbd5e1' }}>
+                  <td style={{ padding: '8px 14px', fontWeight: 700, color: '#475569', fontSize: '0.78rem' }}>
+                    PHYSICAL NOTES TOTAL
+                  </td>
+                  <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 700, color: '#64748b', fontSize: '0.78rem' }}>
+                    {calculations.totalNotesCount} notes
+                  </td>
+                  <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 800, color: '#0284c7', fontSize: '0.95rem', fontFamily: 'var(--font-heading)' }}>
+                    {formatINR(calculations.totalPhysicalCash)}
+                  </td>
+                </tr>
+
+                {/* Row: ONLINE (UPI / SpiceMoney) Input */}
+                <tr style={{ background: '#f0fdf4', borderBottom: '1.5px solid #86efac' }}>
                   <td style={{ padding: '10px 14px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{
@@ -347,30 +380,30 @@ export default function DenominationCalculator() {
                       }}>
                         <CreditCard size={14} />
                       </div>
-                      <span style={{ fontWeight: 800, color: '#15803d', fontSize: '0.9rem' }}>
-                        Online UPI / QR
+                      <span style={{ fontWeight: 800, color: '#15803d', fontSize: '0.88rem' }}>
+                        ONLINE (UPI / SPICE)
                       </span>
                     </div>
                   </td>
 
-                  <td style={{ padding: '6px 12px' }} colSpan={2}>
+                  <td style={{ padding: '6px 12px' }}>
                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                      <span style={{ position: 'absolute', left: '10px', color: '#15803d', fontWeight: 800, fontSize: '0.9rem' }}>₹</span>
+                      <span style={{ position: 'absolute', left: '6px', color: '#15803d', fontWeight: 800, fontSize: '0.82rem' }}>₹</span>
                       <input
                         type="number"
                         min="0"
                         step="any"
-                        placeholder="0.00"
+                        placeholder="0"
                         value={counts.online ?? ''}
                         onChange={e => handleOnlineChange(e.target.value)}
                         style={{
                           width: '100%',
-                          textAlign: 'right',
-                          padding: '6px 12px 6px 26px',
+                          textAlign: 'center',
+                          padding: '6px 6px 6px 16px',
                           borderRadius: '6px',
                           border: '1.5px solid #86efac',
                           fontWeight: 800,
-                          fontSize: '0.95rem',
+                          fontSize: '0.9rem',
                           color: '#15803d',
                           background: '#ffffff',
                           outline: 'none'
@@ -378,39 +411,129 @@ export default function DenominationCalculator() {
                       />
                     </div>
                   </td>
+
+                  <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 800, color: '#15803d', fontSize: '0.95rem', fontFamily: 'var(--font-heading)' }}>
+                    {formatINR(calculations.onlineAmount)}
+                  </td>
+                </tr>
+
+                {/* Row: TOTAL CASH (Notes + Online) */}
+                <tr style={{ background: '#0284c7', color: '#ffffff', borderTop: '2px solid #0369a1' }}>
+                  <td style={{ padding: '10px 14px', fontWeight: 800, fontSize: '0.88rem', letterSpacing: '0.02em' }} colSpan={2}>
+                    TOTAL CASH (PHYSICAL + ONLINE)
+                  </td>
+                  <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 900, color: '#ffffff', fontSize: '1.1rem', fontFamily: 'var(--font-heading)' }}>
+                    {formatINR(calculations.totalCash)}
+                  </td>
+                </tr>
+
+                {/* Row: TOTAL COLLATION / COLLECTION Input */}
+                <tr style={{ background: '#f1f5f9', borderTop: '1px solid #cbd5e1' }}>
+                  <td style={{ padding: '8px 14px', fontWeight: 700, color: '#334155', fontSize: '0.82rem' }}>
+                    TOTAL COLLECTION
+                  </td>
+                  <td style={{ padding: '6px 12px' }} colSpan={2}>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <span style={{ position: 'absolute', left: '10px', color: '#475569', fontWeight: 700, fontSize: '0.85rem' }}>₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        placeholder="Enter expected collection (e.g. 6833)"
+                        value={counts.totalCollection ?? ''}
+                        onChange={e => handleCollectionChange(e.target.value)}
+                        style={{
+                          width: '100%',
+                          textAlign: 'right',
+                          padding: '6px 12px 6px 24px',
+                          borderRadius: '6px',
+                          border: '1.5px solid #cbd5e1',
+                          fontWeight: 800,
+                          fontSize: '0.9rem',
+                          color: '#0f172a',
+                          background: '#ffffff',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                  </td>
+                </tr>
+
+                {/* Row: PENDING / DIFFERENCE */}
+                <tr style={{ 
+                  background: counts.totalCollection 
+                    ? (calculations.pendingDifference >= 0 ? '#ecfdf5' : '#fef2f2') 
+                    : '#f8fafc',
+                  borderTop: '1.5px solid #cbd5e1'
+                }}>
+                  <td style={{ 
+                    padding: '10px 14px', 
+                    fontWeight: 800, 
+                    fontSize: '0.86rem',
+                    color: counts.totalCollection 
+                      ? (calculations.pendingDifference >= 0 ? '#065f46' : '#991b1b') 
+                      : '#475569'
+                  }}>
+                    PENDING / BALANCE
+                  </td>
+                  <td style={{ 
+                    padding: '10px 12px', 
+                    fontSize: '0.74rem', 
+                    fontWeight: 700,
+                    textAlign: 'center',
+                    color: counts.totalCollection 
+                      ? (calculations.pendingDifference >= 0 ? '#059669' : '#dc2626') 
+                      : '#94a3b8'
+                  }}>
+                    {counts.totalCollection ? (calculations.pendingDifference >= 0 ? 'Surplus' : 'Shortage') : 'Enter Collection'}
+                  </td>
+                  <td style={{ 
+                    padding: '10px 14px', 
+                    textAlign: 'right', 
+                    fontWeight: 900, 
+                    fontSize: '1.05rem', 
+                    fontFamily: 'var(--font-heading)',
+                    color: counts.totalCollection 
+                      ? (calculations.pendingDifference >= 0 ? '#059669' : '#dc2626') 
+                      : '#94a3b8'
+                  }}>
+                    {counts.totalCollection ? (
+                      `${calculations.pendingDifference >= 0 ? '+' : ''}${formatINR(calculations.pendingDifference)}`
+                    ) : '₹0'}
+                  </td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* Right: Real-time Summaries & Benchmark Comparison Card */}
+        {/* Right: Executive Summary & Overview Card */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {/* Main Totals Card */}
           <div style={{
             background: 'linear-gradient(135deg, #042f2e 0%, #115e59 100%)',
             color: '#ffffff',
             borderRadius: '14px',
-            padding: '18px',
+            padding: '20px',
             boxShadow: '0 8px 24px rgba(4, 47, 46, 0.2)'
           }}>
             <div style={{ fontSize: '0.72rem', color: '#5eead4', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-              GRAND TOTAL TALLY (CASH + ONLINE)
+              TOTAL CASH & ONLINE (GRAND TOTAL)
             </div>
-            <div style={{ fontSize: '2rem', fontWeight: 900, color: '#ffffff', fontFamily: 'var(--font-heading)', lineHeight: 1.1, marginBottom: '14px' }}>
-              {formatINR(calculations.grandTotal)}
+            <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#ffffff', fontFamily: 'var(--font-heading)', lineHeight: 1.1, marginBottom: '16px' }}>
+              {formatINR(calculations.totalCash)}
             </div>
 
             <div style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
-              gap: '10px',
-              paddingTop: '12px',
+              gap: '12px',
+              paddingTop: '14px',
               borderTop: '1px solid rgba(255, 255, 255, 0.15)'
             }}>
               <div>
                 <div style={{ fontSize: '0.68rem', color: '#ccfbf1', fontWeight: 600 }}>PHYSICAL CASH TALLY</div>
-                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#5eead4', fontFamily: 'var(--font-heading)' }}>
+                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#5eead4', fontFamily: 'var(--font-heading)' }}>
                   {formatINR(calculations.totalPhysicalCash)}
                 </div>
                 <div style={{ fontSize: '0.66rem', color: '#99f6e4', marginTop: '2px' }}>
@@ -420,15 +543,56 @@ export default function DenominationCalculator() {
 
               <div>
                 <div style={{ fontSize: '0.68rem', color: '#ccfbf1', fontWeight: 600 }}>ONLINE RECEIVED</div>
-                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#a7f3d0', fontFamily: 'var(--font-heading)' }}>
+                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#a7f3d0', fontFamily: 'var(--font-heading)' }}>
                   {formatINR(calculations.onlineAmount)}
                 </div>
                 <div style={{ fontSize: '0.66rem', color: '#99f6e4', marginTop: '2px' }}>
-                  Prepaid / QR Payments
+                  UPI / QR Payments
                 </div>
               </div>
             </div>
           </div>
+
+          {/* Reconciliation Status Card */}
+          {counts.totalCollection !== '' && counts.totalCollection !== undefined && (
+            <div style={{
+              background: calculations.pendingDifference >= 0 ? '#ecfdf5' : '#fef2f2',
+              border: `1.5px solid ${calculations.pendingDifference >= 0 ? '#a7f3d0' : '#fecaca'}`,
+              borderRadius: '12px',
+              padding: '16px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  color: calculations.pendingDifference >= 0 ? '#065f46' : '#991b1b',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em'
+                }}>
+                  {calculations.pendingDifference === 0 
+                    ? '✓ EXACT RECONCILIATION MATCH' 
+                    : calculations.pendingDifference > 0 
+                      ? '✓ SURPLUS CASH' 
+                      : '⚠️ SHORTAGE / PENDING'}
+                </span>
+                <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>
+                  Target: {formatINR(calculations.totalCollection)}
+                </span>
+              </div>
+
+              <div style={{
+                fontSize: '1.4rem',
+                fontWeight: 900,
+                fontFamily: 'var(--font-heading)',
+                color: calculations.pendingDifference >= 0 ? '#059669' : '#dc2626'
+              }}>
+                {calculations.pendingDifference >= 0 ? '+' : ''}{formatINR(calculations.pendingDifference)}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px' }}>
+                Total Cash ({formatINR(calculations.totalCash)}) − Total Collection ({formatINR(calculations.totalCollection)})
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
