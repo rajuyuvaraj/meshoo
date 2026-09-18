@@ -71,8 +71,8 @@ export default function RecordDepositModal({
     });
 
     const totalDeposited = remittanceEntries.reduce((sum, r) => sum + (Number(r.cash_deposited) || 0), 0);
-    // Vault cash is Physical Cash minus Bank Cash Deposited
-    const pendingVault = Math.max(0, totalCash - totalDeposited);
+    // Vault balance includes both Cash and Online collections minus Bank Deposited
+    const pendingVault = Math.max(0, totalInHand - totalDeposited);
 
     return {
       totalOnline,
@@ -91,7 +91,7 @@ export default function RecordDepositModal({
     if (suggestedAmount > 0) {
       return suggestedAmount;
     }
-    return aggregates.pendingVault > 0 ? aggregates.pendingVault : (aggregates.totalCash > 0 ? aggregates.totalCash : '');
+    return aggregates.pendingVault > 0 ? aggregates.pendingVault : (aggregates.totalInHand > 0 ? aggregates.totalInHand : '');
   });
 
   const [saving, setSaving] = useState(false);
@@ -316,11 +316,11 @@ export default function RecordDepositModal({
                   </div>
 
                   <div style={{ background: '#f5f3ff', padding: '12px 14px', borderRadius: '10px', border: '1px solid #ddd6fe' }}>
-                    <div style={{ fontSize: '0.72rem', color: '#6d28d9', fontWeight: 600 }}>PHYSICAL CASH COLLECTED</div>
+                    <div style={{ fontSize: '0.72rem', color: '#6d28d9', fontWeight: 600 }}>TOTAL IN-HAND COLLECTIONS</div>
                     <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#7c3aed', fontFamily: 'var(--font-heading)' }}>
-                      {formatINR(aggregates.totalCash)}
+                      {formatINR(aggregates.totalInHand)}
                     </div>
-                    <div style={{ fontSize: '0.68rem', color: '#6d28d9' }}>Handed over by FEs (Online: {formatINR(aggregates.totalOnline)})</div>
+                    <div style={{ fontSize: '0.68rem', color: '#6d28d9' }}>Online ({formatINR(aggregates.totalOnline)}) + Cash ({formatINR(aggregates.totalCash)})</div>
                   </div>
 
                   <div style={{ background: aggregates.pendingVault > 0 ? '#fffbeb' : '#ecfdf5', padding: '12px 14px', borderRadius: '10px', border: `1px solid ${aggregates.pendingVault > 0 ? '#fde68a' : '#a7f3d0'}` }}>
@@ -329,7 +329,7 @@ export default function RecordDepositModal({
                       {formatINR(aggregates.pendingVault)}
                     </div>
                     <div style={{ fontSize: '0.68rem', color: aggregates.pendingVault > 0 ? '#92400e' : '#065f46' }}>
-                      {aggregates.pendingVault > 0 ? `Cash (${formatINR(aggregates.totalCash)}) − Deposited (${formatINR(aggregates.totalDeposited)})` : 'Fully deposited'}
+                      {aggregates.pendingVault > 0 ? `Total Collections (${formatINR(aggregates.totalInHand)}) − Deposited (${formatINR(aggregates.totalDeposited)})` : 'Fully deposited'}
                     </div>
                   </div>
                 </div>

@@ -55,8 +55,8 @@ export default function DateDetailModal({
     });
 
     const totalDeposited = deposits.reduce((sum, d) => sum + (Number(d.cash_deposited) || 0), 0);
-    // Vault cash is Physical Cash collected minus Bank Cash Deposited
-    const dayVaultBalance = Math.max(0, actualCashTally - totalDeposited);
+    // Vault balance is Total Collections Settled (Cash + Online) minus Bank Deposited
+    const dayVaultBalance = totalSettled - totalDeposited;
 
     let status = 'empty';
     if (entries.length > 0) {
@@ -164,7 +164,7 @@ export default function DateDetailModal({
             <div style={{ background: '#f0fdfa', padding: '10px 12px', borderRadius: '10px', border: '1px solid #99f6e4' }}>
               <div style={{ fontSize: '0.72rem', color: '#0f766e', fontWeight: 600 }}>BANK DEPOSITED</div>
               <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#0d9488' }}>{formatINR(dayStats.totalDeposited)}</div>
-              <div style={{ fontSize: '0.68rem', color: '#0f766e', marginTop: '2px' }}>Physical Cash Deposited</div>
+              <div style={{ fontSize: '0.68rem', color: '#0f766e', marginTop: '2px' }}>Deposited to Bank</div>
             </div>
 
             <div style={{ 
@@ -180,7 +180,7 @@ export default function DateDetailModal({
                 {formatINR(dayStats.dayVaultBalance)}
               </div>
               <div style={{ fontSize: '0.68rem', color: dayStats.dayVaultBalance > 0 ? '#92400e' : '#065f46', marginTop: '2px' }}>
-                {dayStats.dayVaultBalance > 0 ? `Cash (${formatINR(dayStats.actualCashTally)}) − Deposited (${formatINR(dayStats.totalDeposited)})` : 'Fully deposited'}
+                {dayStats.dayVaultBalance > 0 ? `Total Collections (${formatINR(dayStats.totalSettled)}) − Deposited (${formatINR(dayStats.totalDeposited)})` : 'Fully deposited'}
               </div>
             </div>
           </div>

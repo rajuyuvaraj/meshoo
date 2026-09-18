@@ -106,8 +106,8 @@ export default function CalendarView({
       }
     });
 
-    // Vault cash is Physical COD Cash collected by FEs minus Bank Physical Cash Deposited
-    const cashInVault = Math.max(0, codCash - totalDepositAmount);
+    // Vault balance includes both Cash and Online collections minus Bank Deposited
+    const cashInVault = totalSettled - totalDepositAmount;
 
     return {
       totalDeliveries,
@@ -244,7 +244,7 @@ export default function CalendarView({
             <CreditCard size={14} color="#059669" />
           </div>
           <div className="kpi-value">{formatINR(monthAggregates.onlinePayments)}</div>
-          <div className="kpi-subtext">UPI / Prepaid / QR (Direct Bank)</div>
+          <div className="kpi-subtext">UPI / Prepaid / QR</div>
         </div>
 
         <div 
@@ -254,11 +254,11 @@ export default function CalendarView({
           title="Click to view all collections"
         >
           <div className="kpi-label">
-            <span>Total Collections</span>
+            <span>Total In-Hand Collections</span>
             <Banknote size={14} color="#d97706" />
           </div>
           <div className="kpi-value">{formatINR(monthAggregates.totalSettled)}</div>
-          <div className="kpi-subtext">Cash ({formatINR(monthAggregates.codCash)}) + Online ({formatINR(monthAggregates.onlinePayments)})</div>
+          <div className="kpi-subtext">Online ({formatINR(monthAggregates.onlinePayments)}) + Cash ({formatINR(monthAggregates.codCash)})</div>
         </div>
 
         <div 
@@ -274,7 +274,7 @@ export default function CalendarView({
           <div className="kpi-value" style={{ color: '#0d9488' }}>
             {formatINR(monthAggregates.totalDepositAmount)}
           </div>
-          <div className="kpi-subtext">Physical cash deposited to bank</div>
+          <div className="kpi-subtext">Total deposited to bank</div>
         </div>
 
         <div 
@@ -291,7 +291,7 @@ export default function CalendarView({
             {formatINR(monthAggregates.cashInVault)}
           </div>
           <div className="kpi-subtext">
-            {monthAggregates.cashInVault > 0 ? `Cash (${formatINR(monthAggregates.codCash)}) − Deposited (${formatINR(monthAggregates.totalDepositAmount)})` : 'Fully deposited to bank'}
+            {monthAggregates.cashInVault > 0 ? `Total Collections (${formatINR(monthAggregates.totalSettled)}) − Deposited (${formatINR(monthAggregates.totalDepositAmount)})` : 'Fully deposited to bank'}
           </div>
         </div>
 
