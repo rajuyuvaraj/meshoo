@@ -4,6 +4,7 @@ import {
   RotateCcw, 
   Copy, 
   Check, 
+  Save,
   Banknote, 
   CreditCard, 
   Coins, 
@@ -42,6 +43,7 @@ const DEFAULT_DENOMINATIONS = [
 
 export default function DenominationCalculator() {
   const [hydrated, setHydrated] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('idle');
   // Counts state for each denomination, online amount & total collection
   const [counts, setCounts] = useState(() => {
     try {
@@ -79,29 +81,6 @@ export default function DenominationCalculator() {
     };
   }, []);
 
-  // Auto-save whenever counts change
-  useEffect(() => {
-    if (!hydrated) return;
-
-    let cancelled = false;
-
-    async function persistCounts() {
-      try {
-        await dataService.saveDenominationTally(counts);
-      } catch (e) {
-        if (!cancelled) {
-          console.warn('Failed to persist denomination counts', e);
-        }
-      }
-    }
-
-    persistCounts();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [counts, hydrated]);
-
   const handleCountChange = (denom, val) => {
     const cleanVal = val === '' ? '' : Math.max(0, parseInt(val, 10) || 0);
     setCounts(prev => ({
@@ -129,6 +108,21 @@ export default function DenominationCalculator() {
   const handleReset = () => {
     if (window.confirm('Clear all denomination counts and calculations?')) {
       setCounts({ ...DEFAULT_COUNTS });
+      setSaveStatus('dirty');
+    }
+  };
+
+  const handleSave = async () => {
+    if (!hydrated) return;
+    setSaveStatus('saving');
+    try {
+      await dataService.saveDenominationTally(counts);
+      setSaveStatus('saved');
+      window.setTimeout(() => setSaveStatus(current => (current === 'saved' ? 'idle' : current)), 2500);
+    } catch (err) {
+      console.warn('Failed to save denomination tally', err);
+      setSaveStatus('error');
+      window.setTimeout(() => setSaveStatus(current => (current === 'error' ? 'idle' : current)), 3000);
     }
   };
 
@@ -234,12 +228,42 @@ export default function DenominationCalculator() {
               Manager Cash & Denomination Tally Pad (SpiceMoney Sheet)
             </h3>
             <p style={{ fontSize: '0.74rem', color: '#64748b', margin: 0 }}>
-              Real-time calculation of notes, coins, online UPI, total cash & pending • Auto-saved locally
+              Real-time calculation of notes, coins, online UPI, total cash & pending • Save to sync across devices
             </p>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={handleSave}
+            disabled={!hydrated || saveStatus === 'saving'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.76rem',
+              fontWeight: 700,
+              background: saveStatus === 'saved' ? '#ecfdf5' : '#eff6ff',
+              borderColor: saveStatus === 'saved' ? '#a7f3d0' : '#bfdbfe',
+              color: saveStatus === 'saved' ? '#065f46' : '#1d4ed8',
+              opacity: !hydrated || saveStatus === 'saving' ? 0.7 : 1
+            }}
+            title="Save tally to sync across devices"
+          >
+            {saveStatus === 'saving' ? <Sparkles size={14} /> : saveStatus === 'saved' ? <Check size={14} color="#059669" /> : <Save size={14} />}
+            <span>
+              {saveStatus === 'saving'
+                ? 'Saving...'
+                : saveStatus === 'saved'
+                  ? 'Saved'
+                  : saveStatus === 'error'
+                    ? 'Save Failed'
+                    : 'Save'}
+            </span>
+          </button>
+
           <button
             type="button"
             className="btn btn-secondary btn-sm"
