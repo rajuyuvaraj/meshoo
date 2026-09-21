@@ -96,6 +96,25 @@ create index if not exists idx_daily_entries_agent_name on daily_entries(agent_n
 create index if not exists idx_remittance_entries_date on remittance_entries(entry_date);
 
 -- ------------------------------------------------------------------------------
+-- 3b. Shared Denomination Tally (device-independent helper state)
+-- ------------------------------------------------------------------------------
+create table if not exists denomination_tallies (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  counts jsonb not null default '{}'::jsonb,
+  updated_at timestamptz default now(),
+  created_at timestamptz default now()
+);
+
+alter table denomination_tallies enable row level security;
+
+drop policy if exists "Authorized managers can manage denomination tallies" on denomination_tallies;
+create policy "Authorized managers can manage denomination tallies"
+  on denomination_tallies for all
+  to authenticated
+  using (public.is_authorized_manager())
+  with check (public.is_authorized_manager());
+
+-- ------------------------------------------------------------------------------
 -- 4. Row Level Security Policies (Strict Manager Whitelist - Issue #2)
 -- ------------------------------------------------------------------------------
 alter table daily_entries enable row level security;

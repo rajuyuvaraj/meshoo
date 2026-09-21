@@ -12,8 +12,21 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { formatINR } from '../../utils/formatters';
+import { dataService } from '../../services/dataService';
 
-const STORAGE_KEY = 'vns_manager_denomination_tally';
+const DEFAULT_COUNTS = {
+  500: '',
+  200: '',
+  100: '',
+  50: '',
+  20: '',
+  10: '',
+  5: '',
+  2: '',
+  1: '',
+  online: '',
+  totalCollection: '',
+};
 
 const DEFAULT_DENOMINATIONS = [
   { value: 500, label: '₹500 Note', type: 'note', color: '#6366f1' },
@@ -28,41 +41,66 @@ const DEFAULT_DENOMINATIONS = [
 ];
 
 export default function DenominationCalculator() {
+  const [hydrated, setHydrated] = useState(false);
   // Counts state for each denomination, online amount & total collection
   const [counts, setCounts] = useState(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        return JSON.parse(saved);
-      }
+      return { ...DEFAULT_COUNTS };
     } catch (e) {
-      console.warn('Failed to load saved denomination counts', e);
+      console.warn('Failed to initialize denomination counts', e);
     }
-    return {
-      500: '',
-      200: '',
-      100: '',
-      50: '',
-      20: '',
-      10: '',
-      5: '',
-      2: '',
-      1: '',
-      online: '',
-      totalCollection: '',
-    };
+    return { ...DEFAULT_COUNTS };
   });
 
   const [copied, setCopied] = useState(false);
 
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadCounts() {
+      try {
+        const saved = await dataService.getDenominationTally();
+        if (mounted && saved) {
+          setCounts(prev => ({ ...prev, ...DEFAULT_COUNTS, ...saved }));
+        }
+      } catch (err) {
+        console.warn('Failed to load synced denomination tally', err);
+      } finally {
+        if (mounted) {
+          setHydrated(true);
+        }
+      }
+    }
+
+    loadCounts();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   // Auto-save whenever counts change
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(counts));
-    } catch (e) {
-      console.warn('Failed to persist denomination counts', e);
+    if (!hydrated) return;
+
+    let cancelled = false;
+
+    async function persistCounts() {
+      try {
+        await dataService.saveDenominationTally(counts);
+      } catch (e) {
+        if (!cancelled) {
+          console.warn('Failed to persist denomination counts', e);
+        }
+      }
     }
-  }, [counts]);
+
+    persistCounts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [counts, hydrated]);
 
   const handleCountChange = (denom, val) => {
     const cleanVal = val === '' ? '' : Math.max(0, parseInt(val, 10) || 0);
@@ -90,23 +128,7 @@ export default function DenominationCalculator() {
 
   const handleReset = () => {
     if (window.confirm('Clear all denomination counts and calculations?')) {
-      const emptyState = {
-        500: '',
-        200: '',
-        100: '',
-        50: '',
-        20: '',
-        10: '',
-        5: '',
-        2: '',
-        1: '',
-        online: '',
-        totalCollection: '',
-      };
-      setCounts(emptyState);
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(emptyState));
-      } catch (e) {}
+      setCounts({ ...DEFAULT_COUNTS });
     }
   };
 

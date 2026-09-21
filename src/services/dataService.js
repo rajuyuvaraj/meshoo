@@ -88,6 +88,39 @@ function ensureLocalStorageInitialized() {
 
 ensureLocalStorageInitialized();
 
+const DEFAULT_DENOMINATION_COUNTS = {
+  500: '',
+  200: '',
+  100: '',
+  50: '',
+  20: '',
+  10: '',
+  5: '',
+  2: '',
+  1: '',
+  online: '',
+  totalCollection: '',
+};
+
+function normalizeDenominationCounts(counts = {}) {
+  return {
+    ...DEFAULT_DENOMINATION_COUNTS,
+    ...counts,
+  };
+}
+
+async function getAuthenticatedUserId() {
+  if (!isSupabaseConfigured || !supabase) return null;
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data?.user?.id) return null;
+    return data.user.id;
+  } catch (err) {
+    console.warn('Unable to resolve Supabase user for synced tally:', err);
+    return null;
+  }
+}
+
 export const dataService = {
   // --------------------------------------------------------------------------
   // AUTHENTICATION & SECURITY (Issues #1, #3 & Demo Mode)
@@ -767,5 +800,74 @@ export const dataService = {
     localStorage.setItem(STORAGE_KEYS.REMITTANCE_ENTRIES, JSON.stringify(generateInitialRemittanceEntries()));
     localStorage.setItem(STORAGE_KEYS.KNOWN_AGENTS, JSON.stringify(INITIAL_KNOWN_AGENTS));
     return true;
+  },
+
+  async getDenominationTally() {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const userId = await getAuthenticatedUserId();
+        if (userId) {
+          const { data, error } = await supabase
+            .from('denomination_tallies')
+            .select('counts, updated_at')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (data && !error) {
+            return normalizeDenominationCounts(data.counts || {});
+          }
+          if (error) {
+            console.warn('Supabase denomination tally fetch error:', error.message);
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase denomination tally fetch exception:', err);
+      }
+    }
+
+    try {
+      const saved = localStorage.getItem('vns_manager_denomination_tally');
+      return normalizeDenominationCounts(saved ? JSON.parse(saved) : {});
+    } catch (err) {
+      console.warn('Failed to load local denomination tally:', err);
+      return { ...DEFAULT_DENOMINATION_COUNTS };
+    }
+  },
+
+  async saveDenominationTally(counts) {
+    const normalized = normalizeDenominationCounts(counts);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const userId = await getAuthenticatedUserId();
+        if (userId) {
+          const payload = {
+            user_id: userId,
+            counts: normalized,
+            updated_at: new Date().toISOString(),
+          };
+
+          const { error } = await supabase
+            .from('denomination_tallies')
+            .upsert(payload, { onConflict: 'user_id' });
+
+          if (!error) {
+            return normalized;
+          }
+
+          console.warn('Supabase denomination tally save error:', error.message);
+        }
+      } catch (err) {
+        console.warn('Supabase denomination tally save exception:', err);
+      }
+    }
+
+    try {
+      localStorage.setItem('vns_manager_denomination_tally', JSON.stringify(normalized));
+    } catch (err) {
+      console.warn('Failed to persist local denomination tally:', err);
+    }
+
+    return normalized;
   }
 };
