@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Header from './components/Header';
 import LoginScreen from './components/Auth/LoginScreen';
 import CalendarView from './components/Calendar/CalendarView';
@@ -11,6 +11,20 @@ import { exportAllDatesExcel } from './utils/excelExport';
 import { isSupabaseConfigured } from './services/supabaseClient';
 import { HUB_CONFIG } from './config/hubSettings';
 import { CheckCircle2, AlertCircle, Database, ShieldAlert } from 'lucide-react';
+
+function buildBalanceSnapshot(dailyEntries = [], remittanceEntries = []) {
+  const totalSettled = dailyEntries.reduce((sum, entry) => sum + (Number(entry.total_settled) || 0), 0);
+  const totalDeposited = remittanceEntries.reduce((sum, entry) => sum + (Number(entry.cash_deposited) || 0), 0);
+  const netInHand = totalSettled - totalDeposited;
+
+  return {
+    totalSettled,
+    totalDeposited,
+    netInHand,
+    amountDue: Math.abs(netInHand),
+    statusLabel: netInHand === 0 ? 'Fully settled' : netInHand > 0 ? 'Amount due' : 'Over deposited',
+  };
+}
 
 export default function App() {
   // Theme state ('light' | 'dark')
@@ -66,6 +80,9 @@ export default function App() {
   });
 
   const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [postLoginBalanceOpen, setPostLoginBalanceOpen] = useState(false);
+  const [postLoginBalance, setPostLoginBalance] = useState(null);
+  const skipNextAutoLoadRef = useRef(false);
 
   // Toast notifications
   const [toasts, setToasts] = useState([]);
@@ -116,6 +133,10 @@ export default function App() {
 
   useEffect(() => {
     if (user) {
+      if (skipNextAutoLoadRef.current) {
+        skipNextAutoLoadRef.current = false;
+        return;
+      }
       loadData();
     }
   }, [user, loadData]);
@@ -123,7 +144,22 @@ export default function App() {
   // Auth actions
   const handleLogin = async (email, password) => {
     const loggedInUser = await dataService.login(email, password);
+    skipNextAutoLoadRef.current = true;
     setUser(loggedInUser);
+
+    const [fetchedKnownAgents, fetchedEntries, fetchedRemittances] = await Promise.all([
+      dataService.getKnownAgents(),
+      dataService.getDailyEntries(),
+      dataService.getRemittanceEntries(),
+    ]);
+    setKnownAgents(fetchedKnownAgents);
+    setDailyEntries(fetchedEntries);
+    setRemittanceEntries(fetchedRemittances);
+
+    const balanceSnapshot = buildBalanceSnapshot(fetchedEntries, fetchedRemittances);
+    setPostLoginBalance(balanceSnapshot);
+    setPostLoginBalanceOpen(true);
+
     addToast(`Welcome, ${loggedInUser.name || 'Hub Manager'}!`);
 
     // Verify the user has data access (must be in allowed_managers table)
@@ -147,6 +183,8 @@ export default function App() {
   const handleLogout = async () => {
     await dataService.logout();
     setUser(null);
+    setPostLoginBalanceOpen(false);
+    setPostLoginBalance(null);
     addToast(`Signed out of ${HUB_CONFIG.HUB_NAME}`);
   };
 
@@ -404,6 +442,71 @@ export default function App() {
           </div>
         ))}
       </div>
+
+      {postLoginBalanceOpen && postLoginBalance && (
+        <div className="modal-overlay" onClick={() => setPostLoginBalanceOpen(false)} style={{ zIndex: 80 }}>
+          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '560px', width: 'calc(100% - 32px)' }}>
+            <div className="modal-header" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #134e4a 100%)', color: '#ffffff' }}>
+              <div>
+                <h3 className="modal-title" style={{ color: '#ffffff' }}>Current Balance in Hand</h3>
+                <p style={{ margin: '6px 0 0', fontSize: '0.82rem', color: 'rgba(255,255,255,0.78)' }}>
+                  Net in hand is shown after every login so the on-duty manager can settle it immediately.
+                </p>
+              </div>
+              <button type="button" className="btn-icon" onClick={() => setPostLoginBalanceOpen(false)} style={{ color: '#ffffff' }}>
+                ×
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ padding: '22px' }}>
+              <div style={{ display: 'grid', gap: '14px' }}>
+                <div style={{ padding: '16px', borderRadius: '14px', background: 'linear-gradient(135deg, #ecfeff 0%, #f0fdfa 100%)', border: '1px solid #99f6e4' }}>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#0f766e' }}>
+                    Net in hand
+                  </div>
+                  <div style={{ fontSize: '2rem', fontWeight: 800, color: '#0f172a', marginTop: '6px' }}>
+                    ₹{Math.abs(postLoginBalance.netInHand).toLocaleString('en-IN')}
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: '#0f766e', marginTop: '6px', fontWeight: 600 }}>
+                    {postLoginBalance.statusLabel === 'Fully settled'
+                      ? 'All collections are fully settled.'
+                      : postLoginBalance.netInHand > 0
+                        ? 'Please settle this amount.'
+                        : 'This amount is already over deposited.'}
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
+                  <div style={{ padding: '14px', borderRadius: '12px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 700 }}>Total Collections</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', marginTop: '6px' }}>
+                      ₹{postLoginBalance.totalSettled.toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                  <div style={{ padding: '14px', borderRadius: '12px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 700 }}>Bank Deposited</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', marginTop: '6px' }}>
+                      ₹{postLoginBalance.totalDeposited.toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ padding: '14px 16px', borderRadius: '12px', background: '#fff7ed', border: '1px solid #fdba74', color: '#9a3412', fontWeight: 700 }}>
+                  {postLoginBalance.netInHand >= 0
+                    ? `OG Vaibhav pay ₹${postLoginBalance.amountDue.toLocaleString('en-IN')}`
+                    : `Over deposited by: ₹${postLoginBalance.amountDue.toLocaleString('en-IN')}`}
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ justifyContent: 'flex-end' }}>
+              <button type="button" className="btn btn-primary" onClick={() => setPostLoginBalanceOpen(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
