@@ -66,12 +66,12 @@ create table if not exists daily_entries (
 );
 
 -- ------------------------------------------------------------------------------
--- 3. Bank Remittance Entries (one row per date, hub-level - Issue #2 & #9)
+-- 3. Bank Remittance Entries (multiple rows per date, hub-level - Issue #2 & #9)
 -- ------------------------------------------------------------------------------
 create table if not exists remittance_entries (
   id uuid primary key default gen_random_uuid(),
   created_by uuid references auth.users(id) default auth.uid(),
-  entry_date date not null unique,
+  entry_date date not null,
   hub_location text default 'UT8 HUB',
   deposit_bank text default 'State Bank of India',
   deposit_branch text default 'Varanasi Main Branch (Cantt)',
@@ -89,6 +89,10 @@ create table if not exists remittance_entries (
   updated_at timestamptz default now(),
   constraint remittance_entries_no_future_dates check (entry_date <= (current_date + interval '1 day'))
 );
+
+-- Allow multiple remittances on the same day; uniqueness is handled by id, not date.
+alter table if exists remittance_entries
+  drop constraint if exists remittance_entries_entry_date_key;
 
 -- Indices for rapid querying by date range
 create index if not exists idx_daily_entries_date on daily_entries(entry_date);

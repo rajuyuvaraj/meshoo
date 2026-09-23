@@ -627,7 +627,7 @@ export const dataService = {
     const enriched = await Promise.all(records.map(async (r) => {
       if (r.receipt_image) return r;
       try {
-        const storedReceipt = await getReceiptFromStorage(r.entry_date) || (r.id ? await getReceiptFromStorage(r.id) : null);
+        const storedReceipt = (r.id ? await getReceiptFromStorage(r.id) : null) || await getReceiptFromStorage(r.entry_date);
         if (storedReceipt?.dataUrl) {
           return {
             ...r,
@@ -648,6 +648,7 @@ export const dataService = {
   async saveRemittanceEntry(remittanceData) {
     let receiptUrl = remittanceData.receipt_image;
     const filename = remittanceData.receipt_filename || `deposit_${remittanceData.entry_date}.jpg`;
+    const localRecordId = remittanceData.id || `rem-${Date.now()}`;
 
     // 1. If Supabase is configured and image is Data URL, upload to Supabase Storage bucket
     if (isSupabaseConfigured && supabase && receiptUrl && receiptUrl.startsWith('data:')) {
@@ -692,36 +693,31 @@ export const dataService = {
       updated_at: new Date().toISOString(),
     };
 
-    const recordId = remittanceData.id || `rem-${Date.now()}`;
-
-    // Cache receipt to IndexedDB + memory storage for offline speed
-    if (remittanceData.receipt_image) {
-      await saveReceiptToStorage(payload.entry_date, {
-        dataUrl: remittanceData.receipt_image,
-        filename,
-      });
-      await saveReceiptToStorage(recordId, {
-        dataUrl: remittanceData.receipt_image,
-        filename,
-      });
-    }
-
     // Sync to Supabase if configured — errors must surface, not silently fall back
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase
-        .from('remittance_entries')
-        .upsert([payload], { onConflict: 'entry_date' })
-        .select()
-        .single();
+      const request = remittanceData.id
+        ? supabase.from('remittance_entries').update(payload).eq('id', remittanceData.id).select()
+        : supabase.from('remittance_entries').insert([payload]).select();
+
+      const { data, error } = await request.single();
 
       if (error) {
         throw new Error(`Failed to save deposit to server: ${error.message}`);
       }
 
+      const savedId = data?.id || remittanceData.id;
+
+      if (remittanceData.receipt_image && savedId) {
+        await saveReceiptToStorage(savedId, {
+          dataUrl: remittanceData.receipt_image,
+          filename,
+        });
+      }
+
       // Update local cache mirror
       ensureLocalStorageInitialized();
       const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.REMITTANCE_ENTRIES) || '[]');
-      const idx = list.findIndex(r => r.entry_date === payload.entry_date);
+      const idx = savedId ? list.findIndex(r => r.id === savedId) : -1;
       if (idx >= 0) list[idx] = data;
       else list.unshift(data);
       localStorage.setItem(STORAGE_KEYS.REMITTANCE_ENTRIES, JSON.stringify(list));
@@ -732,18 +728,25 @@ export const dataService = {
     // Persist in LocalStorage — Demo mode only (Supabase not configured)
     ensureLocalStorageInitialized();
     const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.REMITTANCE_ENTRIES) || '[]');
-    const idx = list.findIndex(r => r.entry_date === payload.entry_date || (remittanceData.id && r.id === remittanceData.id));
+    const idx = remittanceData.id ? list.findIndex(r => r.id === remittanceData.id) : list.findIndex(r => r.entry_date === payload.entry_date);
     let localResult;
     if (idx >= 0) {
-      list[idx] = { ...list[idx], ...payload, id: list[idx].id || recordId };
+      list[idx] = { ...list[idx], ...payload, id: list[idx].id || remittanceData.id || localRecordId };
       localResult = list[idx];
     } else {
       localResult = {
-        id: recordId,
+        id: remittanceData.id || localRecordId,
         ...payload,
         created_at: new Date().toISOString(),
       };
       list.push(localResult);
+    }
+
+    if (remittanceData.receipt_image) {
+      await saveReceiptToStorage(localResult.id, {
+        dataUrl: remittanceData.receipt_image,
+        filename,
+      });
     }
 
     try {
@@ -760,12 +763,12 @@ export const dataService = {
     if (isSupabaseConfigured && supabase) {
       const isDateString = typeof idOrDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(idOrDate);
       let query = supabase.from('remittance_entries').delete();
-      if (isDateString) {
-        query = query.eq('entry_date', idOrDate);
+      if (idOrDate && !isDateString) {
+        query = query.eq('id', idOrDate);
       } else if (entryDate) {
         query = query.eq('entry_date', entryDate);
-      } else if (idOrDate && !String(idOrDate).startsWith('rem-')) {
-        query = query.eq('id', idOrDate);
+      } else if (isDateString) {
+        query = query.eq('entry_date', idOrDate);
       }
 
       const { error } = await query;
